@@ -66,6 +66,25 @@ class CsvRepositoryImpl implements CsvRepository {
       throw FileAccessFailure('Failed to atomically save changes to CSV disk stream: ${e.toString()}');
     }
   }
+
+  @override
+  Future<List<int>> filterAndSortTable({
+    required CsvTableMetadata metadata,
+    required String searchQuery,
+    int? sortColumnIndex,
+    required bool isSortAscending,
+  }) async {
+    try {
+      return await _worker.filterAndSort(
+        filePath: metadata.filePath,
+        searchQuery: searchQuery,
+        sortColumnIndex: sortColumnIndex,
+        isSortAscending: isSortAscending,
+      );
+    } catch (e) {
+      throw ParseFailure('Failed to filter and sort CSV table indices: ${e.toString()}');
+    }
+  }
 }
 
 class IsolateSaveRequest {

@@ -13,4 +13,12 @@ abstract interface class CsvRepository {
     CsvTableMetadata metadata,
     Map<CsvCellPosition, String> mutations,
   );
+
+  /// Performs background table filtering and sorting on a dedicated isolate worker.
+  Future<List<int>> filterAndSortTable({
+    required CsvTableMetadata metadata,
+    required String searchQuery,
+    int? sortColumnIndex,
+    required bool isSortAscending,
+  });
 }

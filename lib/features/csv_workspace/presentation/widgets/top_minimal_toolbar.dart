@@ -5,6 +5,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../shared/extensions/context_extensions.dart';
 import '../controllers/csv_loader_provider.dart';
 import '../controllers/table_editing_provider.dart';
+import '../controllers/table_filter_provider.dart';
 
 class TopMinimalToolbar extends ConsumerWidget {
   const TopMinimalToolbar({super.key});
@@ -110,40 +111,8 @@ class TopMinimalToolbar extends ConsumerWidget {
 
                     const Spacer(),
 
-                    // Center Global Search Box
-                    Container(
-                      width: isCompact ? 100.0 : 280.0,
-                      height: 28.0,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(6.0),
-                        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search, size: 14, color: AppColors.textMuted),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: TextField(
-                              style: const TextStyle(fontSize: 11.0, color: AppColors.textPrimary),
-                              decoration: InputDecoration(
-                                hintText: isCompact ? 'Search...' : 'Search (Ctrl + F)',
-                                hintStyle: TextStyle(fontSize: 11.0, color: AppColors.textMuted.withAlpha(180)),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              onSubmitted: (val) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Searching for "$val" in workspace...')),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Center Global Search Box (sleek Linear/Raycast style)
+                    _SearchField(isCompact: isCompact),
 
                     const Spacer(),
 
@@ -362,6 +331,84 @@ class TopMinimalToolbar extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SearchField extends ConsumerStatefulWidget {
+  final bool isCompact;
+  const _SearchField({required this.isCompact});
+
+  @override
+  ConsumerState<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<_SearchField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialQuery = ref.read(tableFilterProvider).searchQuery;
+    _controller = TextEditingController(text: initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<TableFilterState>(
+      tableFilterProvider,
+      (previous, next) {
+        if (next.searchQuery != _controller.text) {
+          _controller.text = next.searchQuery;
+        }
+      },
+    );
+
+    return Container(
+      width: widget.isCompact ? 120.0 : 280.0,
+      height: 28.0,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(6.0),
+        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        children: [
+          const Icon(Icons.search, size: 14, color: AppColors.textMuted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              style: const TextStyle(fontSize: 11.0, color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: widget.isCompact ? 'Search...' : 'Search (Ctrl + F)',
+                hintStyle: TextStyle(fontSize: 11.0, color: AppColors.textMuted.withAlpha(180)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (val) {
+                ref.read(tableFilterProvider.notifier).setSearchQuery(val);
+              },
+            ),
+          ),
+          if (_controller.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _controller.clear();
+                ref.read(tableFilterProvider.notifier).setSearchQuery('');
+              },
+              child: const Icon(Icons.clear, size: 12, color: AppColors.textMuted),
+            ),
+        ],
       ),
     );
   }

@@ -11,6 +11,21 @@ class IsolateParseRequest {
   const IsolateParseRequest(this.filePath);
 }
 
+/// Request payload passed down to the background filtering/sorting Isolate.
+class IsolateFilterSortRequest {
+  final String filePath;
+  final String searchQuery;
+  final int? sortColumnIndex;
+  final bool isSortAscending;
+
+  const IsolateFilterSortRequest({
+    required this.filePath,
+    required this.searchQuery,
+    this.sortColumnIndex,
+    required this.isSortAscending,
+  });
+}
+
 /// The CsvIsolateWorker handles streaming file analytics on an independent thread 
 /// to ensure the main application interface remains completely interactive (60/120 FPS).
 class CsvIsolateWorker {
@@ -20,6 +35,126 @@ class CsvIsolateWorker {
   /// Generates a complete layout map of row locations in under a second.
   Future<CsvTableMetadata> indexFile(String filePath) async {
     return compute(_executeIndexing, IsolateParseRequest(filePath));
+  }
+
+  /// Evaluates background search matching and natural sorting on a separate isolate.
+  Future<List<int>> filterAndSort({
+    required String filePath,
+    required String searchQuery,
+    int? sortColumnIndex,
+    required bool isSortAscending,
+  }) async {
+    return compute(
+      _executeFilterAndSort,
+      IsolateFilterSortRequest(
+        filePath: filePath,
+        searchQuery: searchQuery,
+        sortColumnIndex: sortColumnIndex,
+        isSortAscending: isSortAscending,
+      ),
+    );
+  }
+
+  static Future<List<int>> _executeFilterAndSort(IsolateFilterSortRequest request) async {
+    final file = File(request.filePath);
+    if (!await file.exists()) {
+      return [];
+    }
+
+    final List<int> matchedIndices = [];
+    final Map<int, String> sortValues = {};
+    final String query = request.searchQuery.toLowerCase().trim();
+
+    final Stream<List<int>> byteStream = file.openRead();
+    final Stream<String> lineStream = byteStream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+
+    int currentLineIndex = 0;
+
+    await for (final String line in lineStream) {
+      if (currentLineIndex > 0) {
+        final int rowDataIndex = currentLineIndex - 1;
+
+        // 1. Search Query Filter check
+        final bool isMatch = query.isEmpty || line.toLowerCase().contains(query);
+
+        if (isMatch) {
+          matchedIndices.add(rowDataIndex);
+
+          // 2. Sort value extraction
+          if (request.sortColumnIndex != null) {
+            final List<String> cells = _parseCsvLineFast(line);
+            final String cellValue = request.sortColumnIndex! < cells.length
+                ? cells[request.sortColumnIndex!]
+                : '';
+            sortValues[rowDataIndex] = cellValue;
+          }
+        }
+      }
+      currentLineIndex++;
+    }
+
+    // 3. Sorting Execution
+    if (request.sortColumnIndex != null && matchedIndices.isNotEmpty) {
+      matchedIndices.sort((a, b) {
+        final String valA = sortValues[a] ?? '';
+        final String valB = sortValues[b] ?? '';
+        return _compareAlphanumeric(valA, valB, request.isSortAscending);
+      });
+    }
+
+    return matchedIndices;
+  }
+
+  static List<String> _parseCsvLineFast(String line) {
+    if (!line.contains('"')) {
+      return line.split(',').map((e) => e.trim()).toList();
+    }
+    return _parseCsvLine(line);
+  }
+
+  static List<String> _parseCsvLine(String line) {
+    String workingString = line;
+    if (workingString.endsWith('\n')) workingString = workingString.substring(0, workingString.length - 1);
+    if (workingString.endsWith('\r')) workingString = workingString.substring(0, workingString.length - 1);
+
+    final List<String> cells = [];
+    bool insideQuotes = false;
+    StringBuffer currentCell = StringBuffer();
+
+    for (int i = 0; i < workingString.length; i++) {
+      final char = workingString[i];
+      if (char == '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char == ',' && !insideQuotes) {
+        cells.add(currentCell.toString().trim());
+        currentCell.clear();
+      } else {
+        currentCell.write(char);
+      }
+    }
+    cells.add(currentCell.toString().trim());
+    return cells;
+  }
+
+  static int _compareAlphanumeric(String a, String b, bool ascending) {
+    // Push empty values to the end in all sort directions
+    if (a.isEmpty && b.isNotEmpty) return 1;
+    if (b.isEmpty && a.isNotEmpty) return -1;
+    if (a.isEmpty && b.isEmpty) return 0;
+
+    final numA = num.tryParse(a);
+    final numB = num.tryParse(b);
+
+    int comparison;
+    if (numA != null && numB != null) {
+      comparison = numA.compareTo(numB);
+    } else {
+      comparison = a.compareTo(b);
+    }
+
+    return ascending ? comparison : -comparison;
   }
 
   static Future<CsvTableMetadata> _executeIndexing(IsolateParseRequest request) async {

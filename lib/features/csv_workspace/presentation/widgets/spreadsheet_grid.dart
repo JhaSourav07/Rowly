@@ -8,6 +8,7 @@ import '../../domain/models/csv_cell.dart';
 import '../../domain/models/csv_table.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_viewport_provider.dart';
+import '../controllers/table_filter_provider.dart';
 
 class SpreadsheetGrid extends ConsumerStatefulWidget {
   final CsvTableMetadata metadata;
@@ -35,7 +36,12 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
     super.dispose();
   }
 
-  int get _totalPages => (widget.metadata.totalRows / _rowsPerPage).ceil();
+  int get _totalPages {
+    final filterState = ref.read(tableFilterProvider);
+    final count = filterState.visibleRowIndices.length;
+    if (count == 0) return 1;
+    return (count / _rowsPerPage).ceil();
+  }
 
   void _navigateToPage(int page) {
     if (page < 1 || page > _totalPages) return;
@@ -63,6 +69,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
   @override
   Widget build(BuildContext context) {
     final selectedCell = ref.watch(selectedCellProvider);
+    final filterState = ref.watch(tableFilterProvider);
 
     return Column(
       children: [
@@ -127,7 +134,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
-            itemCount: widget.metadata.totalRows + 1, // +1 for the headers row displayed inside grid
+            itemCount: filterState.visibleRowIndices.length + 1, // +1 for the headers row displayed inside grid
             itemExtent: 32.0, // Fixed row height
             scrollCacheExtent: const ScrollCacheExtent.pixels(200),
             itemBuilder: (context, index) {
@@ -222,66 +229,69 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
               ),
 
               // Right: Pagination Controls
-              Row(
-                children: [
-                  // First page
-                  IconButton(
-                    icon: const Icon(Icons.first_page, size: 14, color: AppColors.textSecondary),
-                    onPressed: _currentPage > 1 ? () => _navigateToPage(1) : null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  const SizedBox(width: 4),
-                  // Prev page
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left, size: 14, color: AppColors.textSecondary),
-                    onPressed: _currentPage > 1 ? () => _navigateToPage(_currentPage - 1) : null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  const SizedBox(width: 8),
-                  // Page number input visual display
-                  Container(
-                    width: 32.0,
-                    height: 18.0,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
-                      border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-                      borderRadius: BorderRadius.circular(3.0),
+              (() {
+                final int displayPage = _currentPage > _totalPages ? _totalPages : _currentPage;
+                return Row(
+                  children: [
+                    // First page
+                    IconButton(
+                      icon: const Icon(Icons.first_page, size: 14, color: AppColors.textSecondary),
+                      onPressed: displayPage > 1 ? () => _navigateToPage(1) : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
                     ),
-                    child: Text(
-                      _currentPage.toString(),
-                      style: const TextStyle(fontSize: 10.0, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 4),
+                    // Prev page
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, size: 14, color: AppColors.textSecondary),
+                      onPressed: displayPage > 1 ? () => _navigateToPage(displayPage - 1) : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'of $_totalPages',
-                    style: const TextStyle(fontSize: 11.0, color: AppColors.textMuted),
-                  ),
-                  const SizedBox(width: 8),
-                  // Next page
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right, size: 14, color: AppColors.textSecondary),
-                    onPressed: _currentPage < _totalPages ? () => _navigateToPage(_currentPage + 1) : null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  const SizedBox(width: 4),
-                  // Last page
-                  IconButton(
-                    icon: const Icon(Icons.last_page, size: 14, color: AppColors.textSecondary),
-                    onPressed: _currentPage < _totalPages ? () => _navigateToPage(_totalPages) : null,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    // Page number input visual display
+                    Container(
+                      width: 32.0,
+                      height: 18.0,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                        borderRadius: BorderRadius.circular(3.0),
+                      ),
+                      child: Text(
+                        displayPage.toString(),
+                        style: const TextStyle(fontSize: 10.0, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'of $_totalPages',
+                      style: const TextStyle(fontSize: 11.0, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(width: 8),
+                    // Next page
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, size: 14, color: AppColors.textSecondary),
+                      onPressed: displayPage < _totalPages ? () => _navigateToPage(displayPage + 1) : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 4),
+                    // Last page
+                    IconButton(
+                      icon: const Icon(Icons.last_page, size: 14, color: AppColors.textSecondary),
+                      onPressed: displayPage < _totalPages ? () => _navigateToPage(_totalPages) : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                );
+              })(),
             ],
           ),
         ),
@@ -302,19 +312,38 @@ class VirtualGridRow extends ConsumerWidget {
     required this.metadata,
   });
 
+  Widget _buildSortIcon(WidgetRef ref, int colIndex) {
+    final filterState = ref.watch(tableFilterProvider);
+    if (filterState.sortColumnIndex == colIndex) {
+      return Icon(
+        filterState.isSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+        size: 12,
+        color: AppColors.successGreen,
+      );
+    }
+    return const Icon(Icons.filter_alt_outlined, size: 10, color: AppColors.textMuted);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mutations = ref.watch(tableEditingProvider);
     final selectedCell = ref.watch(selectedCellProvider);
     final editMode = ref.watch(editModeProvider);
+    final filterState = ref.watch(tableFilterProvider);
 
-    final isSelectedRow = selectedCell?.rowIndex == rowIndex;
-
-    // Row index 0 contains the bold headers (Order ID, Order Date...)
     final bool isHeadersRow = rowIndex == 0;
 
+    // Translate the visual position to the actual file index
+    final int actualFileRowIndex = isHeadersRow 
+        ? -1 
+        : (rowIndex - 1 < filterState.visibleRowIndices.length 
+            ? filterState.visibleRowIndices[rowIndex - 1] 
+            : -1);
+
+    final isSelectedRow = selectedCell?.rowIndex == actualFileRowIndex && !isHeadersRow;
+
     // Watch this specific row's data. If it is the headers row, we don't watch disk rows stream.
-    final rowAsync = isHeadersRow ? null : ref.watch(csvRowProvider(rowIndex - 1));
+    final rowAsync = isHeadersRow ? null : ref.watch(csvRowProvider(actualFileRowIndex));
 
     return Container(
       height: 32.0,
@@ -350,12 +379,15 @@ class VirtualGridRow extends ConsumerWidget {
           Expanded(
             child: Row(
               children: List.generate(columnCount, (colIndex) {
-                final cellPosition = CsvCellPosition(rowIndex: rowIndex, columnIndex: colIndex);
-                final isSelectedCell = selectedCell == cellPosition;
+                final cellPosition = isHeadersRow
+                    ? CsvCellPosition(rowIndex: -1, columnIndex: colIndex)
+                    : CsvCellPosition(rowIndex: actualFileRowIndex, columnIndex: colIndex);
+                final isSelectedCell = selectedCell == cellPosition && !isHeadersRow;
 
                 return Expanded(
                   child: GestureDetector(
                     onTap: () {
+                      if (isHeadersRow) return;
                       ref.read(selectedCellProvider.notifier).select(cellPosition);
                     },
                     onDoubleTap: () {
@@ -389,22 +421,28 @@ class VirtualGridRow extends ConsumerWidget {
                               ),
                       ),
                       child: isHeadersRow
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    metadata.headers[colIndex],
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13.0,
+                          ? GestureDetector(
+                              onTap: () {
+                                ref.read(tableFilterProvider.notifier).toggleSortColumn(colIndex);
+                              },
+                              behavior: HitTestBehavior.opaque,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      metadata.headers[colIndex],
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13.0,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                const Icon(Icons.filter_alt_outlined, size: 10, color: AppColors.textMuted),
-                              ],
+                                  _buildSortIcon(ref, colIndex),
+                                ],
+                              ),
                             )
                           : rowAsync!.when(
                               data: (cells) {
