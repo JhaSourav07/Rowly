@@ -1,0 +1,188 @@
+name: Semantic Auto-Release
+
+# Triggers on every push to main.
+# Scans commit messages for Conventional Commit prefixes and bumps
+# pubspec.yaml automatically:
+#
+#   fix: …         → PATCH  (1.0.0 → 1.0.1)
+#   feat: …        → MINOR  (1.0.0 → 1.1.0)
+#   feat!: …       → MAJOR  (1.0.0 → 2.0.0)
+#   BREAKING CHANGE → MAJOR
+#
+# The version bump commit + tag push then triggers release.yml which
+# builds Linux/Windows binaries and publishes the GitHub Release.
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  semantic-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # ── 1. Full history checkout ──────────────────────────────────────────
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Need all history to find last tag and list commits
+
+      # ── 2. Skip if this push was the bot's own version-bump commit ────────
+      - name: Detect bot commit (avoid infinite loop)
+        id: bot_check
+        run: |
+          LAST_MSG=$(git log -1 --pretty=format:"%s")
+          echo "Last commit message: $LAST_MSG"
+          if echo "$LAST_MSG" | grep -qE '^\[skip ci\]|^chore: release v'; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ── 3. Find the last vX.Y.Z tag ──────────────────────────────────────
+      - name: Find last release tag
+        if: steps.bot_check.outputs.skip == 'false'
+        id: last_tag
+        run: |
+          LAST=$(git tag --sort=-version:refname \
+                 | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                 | head -n 1 || true)
+          echo "tag=${LAST}" >> $GITHUB_OUTPUT
+          if [ -z "$LAST" ]; then
+            echo "No previous release tag found — will scan all commits."
+          else
+            echo "Last tag: $LAST"
+          fi
+
+      # ── 4. Scan commits for the highest bump level ────────────────────────
+      - name: Determine version bump level
+        if: steps.bot_check.outputs.skip == 'false'
+        id: bump
+        run: |
+          LAST="${{ steps.last_tag.outputs.tag }}"
+
+          if [ -z "$LAST" ]; then
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"%s" "${LAST}..HEAD")
+          fi
+
+          echo "──────────────── Commits since $LAST ────────────────"
+          echo "$COMMITS"
+          echo "──────────────────────────────────────────────────────"
+
+          LEVEL="none"
+
+          # MAJOR: breaking change marker (feat!, fix!, refactor!, etc.)
+          if echo "$COMMITS" | grep -qE '^[a-z]+(\(.+\))?!:'; then
+            LEVEL="major"
+          elif echo "$COMMITS" | grep -qiE 'BREAKING[ -]CHANGE'; then
+            LEVEL="major"
+
+          # MINOR: new feature
+          elif echo "$COMMITS" | grep -qE '^feat(\(.+\))?:'; then
+            LEVEL="minor"
+
+          # PATCH: bug fix, perf, refactor, docs, style, test, build, ci, chore
+          elif echo "$COMMITS" | grep -qE '^(fix|perf|refactor|docs|style|test|build|ci|chore)(\(.+\))?:'; then
+            LEVEL="patch"
+          fi
+
+          echo "Bump level → $LEVEL"
+          echo "level=$LEVEL" >> $GITHUB_OUTPUT
+
+      # ── 5. Skip when no releasable commits found ─────────────────────────
+      - name: No conventional commits — skip
+        if: |
+          steps.bot_check.outputs.skip == 'false' &&
+          steps.bump.outputs.level == 'none'
+        run: |
+          echo "No fix/feat/feat! commits since last release. Nothing to release."
+
+      # ── 6. Parse current version from pubspec.yaml ───────────────────────
+      - name: Parse current version
+        if: |
+          steps.bot_check.outputs.skip == 'false' &&
+          steps.bump.outputs.level != 'none'
+        id: current
+        run: |
+          FULL=$(grep '^version:' pubspec.yaml \
+                 | sed 's/version: //' | tr -d '[:space:]')
+          VER=$(echo "$FULL" | cut -d'+' -f1)
+          BUILD=$(echo "$FULL" | cut -d'+' -f2)
+          echo "version=$VER" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+          echo "major=$(echo $VER | cut -d. -f1)" >> $GITHUB_OUTPUT
+          echo "minor=$(echo $VER | cut -d. -f2)" >> $GITHUB_OUTPUT
+          echo "patch=$(echo $VER | cut -d. -f3)" >> $GITHUB_OUTPUT
+          echo "Current version: $FULL"
+
+      # ── 7. Calculate next version ─────────────────────────────────────────
+      - name: Calculate next version
+        if: |
+          steps.bot_check.outputs.skip == 'false' &&
+          steps.bump.outputs.level != 'none'
+        id: next
+        run: |
+          MAJ=${{ steps.current.outputs.major }}
+          MIN=${{ steps.current.outputs.minor }}
+          PAT=${{ steps.current.outputs.patch }}
+          BLD=${{ steps.current.outputs.build }}
+
+          case "${{ steps.bump.outputs.level }}" in
+            major) MAJ=$((MAJ+1)); MIN=0; PAT=0 ;;
+            minor) MIN=$((MIN+1)); PAT=0 ;;
+            patch) PAT=$((PAT+1)) ;;
+          esac
+
+          NEW="${MAJ}.${MIN}.${PAT}"
+          echo "version=$NEW"           >> $GITHUB_OUTPUT
+          echo "full=${NEW}+${BLD}"     >> $GITHUB_OUTPUT
+          echo "tag=v${NEW}"            >> $GITHUB_OUTPUT
+          echo "Next version: ${NEW}+${BLD}  →  tag: v${NEW}"
+
+      # ── 8. Guard: skip if tag already published ───────────────────────────
+      - name: Check tag uniqueness
+        if: |
+          steps.bot_check.outputs.skip == 'false' &&
+          steps.bump.outputs.level != 'none'
+        id: tag_check
+        run: |
+          TAG="${{ steps.next.outputs.tag }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "exists=true"  >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists — skipping."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ── 9. Write new version to pubspec.yaml ─────────────────────────────
+      - name: Update pubspec.yaml
+        if: |
+          steps.bot_check.outputs.skip == 'false' &&
+          steps.bump.outputs.level != 'none' &&
+          steps.tag_check.outputs.exists == 'false'
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.next.outputs.full }}/" pubspec.yaml
+          echo "pubspec.yaml updated:"
+          grep '^version:' pubspec.yaml
+
+      # ── 10. Commit, tag, and push ─────────────────────────────────────────
+      - name: Commit version bump and push release tag
+        if: |
+          steps.bot_check.outputs.skip == 'false' &&
+          steps.bump.outputs.level != 'none' &&
+          steps.tag_check.outputs.exists == 'false'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore: release ${{ steps.next.outputs.tag }}"
+          git tag "${{ steps.next.outputs.tag }}" \
+              -m "Release ${{ steps.next.outputs.tag }}"
+          git push origin main
+          git push origin "${{ steps.next.outputs.tag }}"
+          echo "✅ Pushed ${{ steps.next.outputs.tag }} — release.yml will now build and publish."

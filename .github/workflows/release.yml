@@ -104,10 +104,21 @@ jobs:
       - name: Generate and Publish Official GitHub Release Tag
         uses: softprops/action-gh-release@v2
         with:
-          name: Rowly Release ${{ github.ref_name }}
+          name: Rowly ${{ github.ref_name }}
           tag_name: ${{ github.ref }}
           draft: false
           prerelease: false
+          generate_release_notes: true   # Auto-generates changelog from commits
+          body: |
+            ## 📦 Rowly ${{ github.ref_name }}
+
+            **Download the right package for your platform:**
+
+            | Platform | File |
+            |---|---|
+            | 🐧 Linux (x64) | `rowly-linux-x64.tar.gz` — extract and run `./rowly` |
+            | 🪟 Windows (x64) | `rowly-windows-x64.zip` — extract and run `rowly.exe` |
+
           files: |
             rowly-linux-x64.tar.gz
             rowly-windows-x64.zip
