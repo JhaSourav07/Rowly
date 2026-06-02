@@ -65,7 +65,7 @@ jobs:
         run: flutter pub get
 
       - name: Run Riverpod Structural Code Generation
-        run: json/dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Compile Native Windows Production Executable
         run: flutter build windows --release
