@@ -73,7 +73,7 @@ jobs:
       - name: Package Windows Bundle into Portable Zip
         shell: pwsh
         run: |
-          cd build/windows/x64/release/bundle
+          cd build/windows/x64/runner/Release
           Compress-Archive -Path * -DestinationPath "${{ github.workspace }}\rowly-windows-x64.zip"
 
       - name: Upload Windows Asset to Worker Session
