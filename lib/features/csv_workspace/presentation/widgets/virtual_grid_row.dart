@@ -4,6 +4,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../shared/extensions/context_extensions.dart';
 import '../../domain/models/csv_cell.dart';
 import '../../domain/models/csv_table.dart';
+import '../controllers/column_operations_provider.dart';
 import '../controllers/column_widths_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
@@ -26,9 +27,9 @@ class VirtualGridRow extends ConsumerWidget {
     required this.gridFocusNode,
   });
 
-  Widget _buildSortIcon(WidgetRef ref, int colIndex) {
+  Widget _buildSortIcon(WidgetRef ref, int visIdx) {
     final filterState = ref.watch(tableFilterProvider);
-    if (filterState.sortColumnIndex == colIndex) {
+    if (filterState.sortColumnIndex == visIdx) {
       return Icon(
         filterState.isSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
         size: 12,
@@ -46,20 +47,28 @@ class VirtualGridRow extends ConsumerWidget {
     final filterState = ref.watch(tableFilterProvider);
     final inlineEditingCell = ref.watch(inlineEditingCellProvider);
     final columnWidths = ref.watch(columnWidthsProvider);
+    final layoutState = ref.watch(columnOperationsProvider);
 
     final bool isHeadersRow = rowIndex == 0;
 
     // Translate the visual position to the actual file index
-    final int actualFileRowIndex = isHeadersRow 
-        ? -1 
-        : (rowIndex - 1 < filterState.visibleRowIndices.length 
-            ? filterState.visibleRowIndices[rowIndex - 1] 
+    final int actualFileRowIndex = isHeadersRow
+        ? -1
+        : (rowIndex - 1 < filterState.visibleRowIndices.length
+            ? filterState.visibleRowIndices[rowIndex - 1]
             : -1);
 
     final isSelectedRow = selectedCell?.rowIndex == actualFileRowIndex && !isHeadersRow;
 
-    // Watch this specific row's data. If it is the headers row, we don't watch disk rows stream.
+    // Watch this specific row's data.
     final rowAsync = isHeadersRow ? null : ref.watch(csvRowProvider(actualFileRowIndex));
+
+    // Use visibleOrder from columnOperationsProvider; fall back to natural order
+    final visibleOrder = layoutState.visibleOrder.isEmpty
+        ? List.generate(metadata.headers.length, (i) => i)
+        : layoutState.visibleOrder;
+
+    final displayColumnCount = visibleOrder.length;
 
     return Container(
       height: 32.0,
@@ -74,26 +83,33 @@ class VirtualGridRow extends ConsumerWidget {
           Positioned.fill(
             left: 50.0,
             child: Row(
-              children: List.generate(columnCount, (colIndex) {
+              children: List.generate(displayColumnCount, (visIdx) {
+                // physicalIndex = which column in the CSV file to read
+                final physicalIndex = visibleOrder[visIdx];
+
+                // cellPosition uses visIdx as the column coordinate so that
+                // selection highlighting stays aligned with the visual grid.
                 final cellPosition = isHeadersRow
-                    ? CsvCellPosition(rowIndex: -1, columnIndex: colIndex)
-                    : CsvCellPosition(rowIndex: actualFileRowIndex, columnIndex: colIndex);
+                    ? CsvCellPosition(rowIndex: -1, columnIndex: visIdx)
+                    : CsvCellPosition(rowIndex: actualFileRowIndex, columnIndex: visIdx);
+
                 final isSelectedCell = selectedCell == cellPosition && !isHeadersRow;
                 final isEditingInline = inlineEditingCell == cellPosition && !isHeadersRow;
-                final double width = columnWidths[colIndex] ?? 120.0;
+                final double width = columnWidths[visIdx] ?? 120.0;
+
+                // Frozen visual highlight
+                final isFrozen = visIdx < layoutState.frozenColumnCount;
 
                 return SizedBox(
                   width: width,
                   child: GestureDetector(
                     onTap: () {
                       if (isHeadersRow) return;
-                      
-                      // Focus the grid focus node to enable arrow key navigation
+
                       gridFocusNode.requestFocus();
-                      
+
                       final currentSelection = ref.read(selectedCellProvider);
                       if (currentSelection == cellPosition) {
-                        // Already selected! Single-tap again immediately opens active inline editing
                         if (editMode) {
                           ref.read(inlineEditingCellProvider.notifier).startEditing(cellPosition);
                         } else {
@@ -104,9 +120,7 @@ class VirtualGridRow extends ConsumerWidget {
                           );
                         }
                       } else {
-                        // First tap: Select instantly (0ms response)
                         ref.read(selectedCellProvider.notifier).select(cellPosition);
-                        // Stop inline editing of any previous cell
                         ref.read(inlineEditingCellProvider.notifier).stopEditing();
                       }
                     },
@@ -116,25 +130,43 @@ class VirtualGridRow extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8.0),
                       alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
+                        color: isFrozen && !isSelectedCell
+                            ? AppColors.accent.withAlpha(8)
+                            : Colors.transparent,
                         border: isSelectedCell
                             ? Border.all(color: AppColors.successGreen, width: 1.5)
-                            : const Border(
-                                right: BorderSide(color: AppColors.borderSubtle, width: 0.5),
-                                bottom: BorderSide(color: AppColors.borderSubtle, width: 0.5),
+                            : Border(
+                                right: const BorderSide(
+                                    color: AppColors.borderSubtle, width: 0.5),
+                                bottom: const BorderSide(
+                                    color: AppColors.borderSubtle, width: 0.5),
+                                left: isFrozen &&
+                                        visIdx == layoutState.frozenColumnCount - 1
+                                    ? const BorderSide(
+                                        color: AppColors.accent, width: 1.5)
+                                    : BorderSide.none,
                               ),
                       ),
                       child: isHeadersRow
                           ? GestureDetector(
                               onTap: () {
-                                ref.read(tableFilterProvider.notifier).toggleSortColumn(colIndex);
+                                ref
+                                    .read(tableFilterProvider.notifier)
+                                    .toggleSortColumn(visIdx);
                               },
                               behavior: HitTestBehavior.opaque,
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      metadata.headers[colIndex],
+                                      layoutState.displayName(
+                                        physicalIndex < metadata.headers.length
+                                            ? metadata.headers[physicalIndex]
+                                            : 'Col $physicalIndex',
+                                        physicalIndex,
+                                      ),
                                       style: const TextStyle(
                                         color: AppColors.textSecondary,
                                         fontWeight: FontWeight.bold,
@@ -143,15 +175,21 @@ class VirtualGridRow extends ConsumerWidget {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  _buildSortIcon(ref, colIndex),
+                                  _buildSortIcon(ref, visIdx),
                                 ],
                               ),
                             )
                           : rowAsync!.when(
                               data: (cells) {
-                                final String initialValue = colIndex < cells.length ? cells[colIndex] : '';
-                                final isMutated = mutations.containsKey(cellPosition);
-                                final String displayValue = mutations[cellPosition] ?? initialValue;
+                                // Read the physical column index in disk data
+                                final String initialValue =
+                                    physicalIndex < cells.length
+                                        ? cells[physicalIndex]
+                                        : '';
+                                final isMutated =
+                                    mutations.containsKey(cellPosition);
+                                final String displayValue =
+                                    mutations[cellPosition] ?? initialValue;
 
                                 if (isEditingInline) {
                                   return InlineCellTextField(
@@ -163,7 +201,9 @@ class VirtualGridRow extends ConsumerWidget {
                                 return Text(
                                   displayValue,
                                   style: context.textTheme.bodyLarge?.copyWith(
-                                    color: isMutated ? AppColors.accent : AppColors.textPrimary,
+                                    color: isMutated
+                                        ? AppColors.accent
+                                        : AppColors.textPrimary,
                                     fontSize: 13.0,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -177,7 +217,10 @@ class VirtualGridRow extends ConsumerWidget {
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
-                              error: (_, __) => const Icon(Icons.error_outline, size: 12, color: AppColors.error),
+                              error: (_, __) => const Icon(
+                                  Icons.error_outline,
+                                  size: 12,
+                                  color: AppColors.error),
                             ),
                     ),
                   ),
@@ -210,8 +253,12 @@ class VirtualGridRow extends ConsumerWidget {
                       isHeadersRow ? '1' : (rowIndex + 1).toString(),
                       style: TextStyle(
                         fontSize: 11.0,
-                        color: isSelectedRow ? AppColors.successGreen : AppColors.textMuted,
-                        fontWeight: isSelectedRow ? FontWeight.bold : FontWeight.normal,
+                        color: isSelectedRow
+                            ? AppColors.successGreen
+                            : AppColors.textMuted,
+                        fontWeight: isSelectedRow
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
+import '../controllers/column_operations_provider.dart';
 import '../controllers/column_widths_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
@@ -39,9 +40,10 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
       _horizontalScrollOffset.value = _horizontalScrollController.offset;
     });
 
-    // Initialize global column widths in the provider
+    // Initialize global column widths and column layout state in the providers
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(columnWidthsProvider.notifier).initialize(widget.metadata.headers.length);
+      ref.read(columnOperationsProvider.notifier).initialize(widget.metadata.headers.length);
     });
   }
 
@@ -51,6 +53,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
     if (oldWidget.metadata.headers.length != widget.metadata.headers.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(columnWidthsProvider.notifier).initialize(widget.metadata.headers.length);
+        ref.read(columnOperationsProvider.notifier).initialize(widget.metadata.headers.length);
       });
     }
   }
@@ -129,11 +132,17 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
   Widget build(BuildContext context) {
     final filterState = ref.watch(tableFilterProvider);
     final columnWidths = ref.watch(columnWidthsProvider);
+    final layoutState = ref.watch(columnOperationsProvider);
 
-    final double totalColumnsWidth = List.generate(
-      widget.metadata.headers.length,
-      (i) => columnWidths[i] ?? 120.0,
-    ).reduce((a, b) => a + b);
+    // Use visibleOrder length so hidden/deleted columns are excluded from width
+    final visibleCount = layoutState.visibleOrder.isEmpty
+        ? widget.metadata.headers.length
+        : layoutState.visibleOrder.length;
+
+    final double totalColumnsWidth = visibleCount == 0
+        ? 0
+        : List.generate(visibleCount, (i) => columnWidths[i] ?? 120.0)
+            .reduce((a, b) => a + b);
     final double totalWidth = 50.0 + totalColumnsWidth;
 
     return Focus(
@@ -180,7 +189,10 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                 return KeyEventResult.handled;
               }
             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-              if (selectedCell.columnIndex < headers.length - 1) {
+              final maxCol = layoutState.visibleOrder.isEmpty
+                  ? headers.length - 1
+                  : layoutState.visibleOrder.length - 1;
+              if (selectedCell.columnIndex < maxCol) {
                 ref.read(selectedCellProvider.notifier).select(
                   CsvCellPosition(rowIndex: selectedCell.rowIndex, columnIndex: selectedCell.columnIndex + 1),
                 );
@@ -219,7 +231,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                         itemBuilder: (context, index) {
                           return VirtualGridRow(
                             rowIndex: index,
-                            columnCount: widget.metadata.headers.length,
+                            columnCount: visibleCount,
                             metadata: widget.metadata,
                             horizontalScrollOffset: _horizontalScrollOffset,
                             gridFocusNode: _gridFocusNode,

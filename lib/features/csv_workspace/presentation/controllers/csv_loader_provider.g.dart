@@ -25,7 +25,7 @@ final csvRepositoryProvider = AutoDisposeProvider<CsvRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CsvRepositoryRef = AutoDisposeProviderRef<CsvRepository>;
-String _$csvLoaderHash() => r'660a918c07256dc27d7434d5fedf45763c6f2b69';
+String _$csvLoaderHash() => r'bf18f448151663797fe01dcc800528b09a203ee5';
 
 /// Controls the active loading state of our workspace workspace.
 /// Uses AsyncValue to effortlessly handle Loading, Data, and Error states in the UI.

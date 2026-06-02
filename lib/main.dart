@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/theme/colors.dart';
 import 'app/theme/typography.dart';
@@ -7,6 +9,11 @@ import 'features/csv_workspace/presentation/widgets/widgets.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Suppress the browser's native right-click menu so Flutter Web
+  // can intercept secondary pointer events (e.g. column context menu).
+  if (kIsWeb) {
+    BrowserContextMenu.disableContextMenu();
+  }
   runApp(const ProviderScope(child: RowlyApp()));
 }
 

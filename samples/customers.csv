@@ -1,0 +1,11 @@
+id,first_name,last_name,email,country,signup_date
+1,John,Doe,john.doe@example.com,USA,2025-05-12
+2,Jane,Smith,jane.smith@example.com,Canada,2025-06-20
+3,Alice,Johnson,alice.j@example.com,UK,2025-08-15
+4,Bob,Brown,bob.brown@example.com,Australia,2025-09-01
+5,Charlie,Green,charlie.g@example.com,Germany,2025-11-10
+6,Emma,White,emma.w@example.com,France,2025-12-05
+7,David,Black,david.b@example.com,Japan,2026-01-08
+8,Fiona,Gray,fiona.g@example.com,Ireland,2026-02-14
+9,George,Harris,george.h@example.com,New Zealand,2026-03-22
+10,Hannah,Martin,hannah.m@example.com,Singapore,2026-04-18

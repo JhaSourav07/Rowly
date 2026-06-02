@@ -1,0 +1,11 @@
+id,name,sku,price,stock,active
+1,MacBook Pro,ELEC-MBP-16,2499.00,45,true
+2,iPhone 15,ELEC-IPH-15,999.00,120,true
+3,Office Chair,FURN-CHR-02,250.00,85,true
+4,Coffee Maker,APPL-COF-01,89.99,30,true
+5,Wireless Mouse,ELEC-MOU-05,49.99,250,true
+6,Desk Lamp,FURN-LMP-11,35.00,60,true
+7,Standing Desk,FURN-DSK-08,450.00,15,true
+8,Bluetooth Speaker,ELEC-SPK-03,120.00,95,true
+9,Running Shoes,APPR-SHU-07,95.00,110,true
+10,Backpack,APPR-PAK-04,55.00,140,true
