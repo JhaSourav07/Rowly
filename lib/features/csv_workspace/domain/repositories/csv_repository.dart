@@ -14,6 +14,17 @@ abstract interface class CsvRepository {
     Map<CsvCellPosition, String> mutations,
   );
 
+  /// Saves all changes — structural (row/column layout) and cell mutations —
+  /// atomically to the original CSV file on disk.
+  Future<CsvTableMetadata> saveAllChanges({
+    required CsvTableMetadata metadata,
+    required Map<CsvCellPosition, String> mutations,
+    required List<int> columnVisibleOrder,
+    required Map<int, String> renamedHeaders,
+    required List<String> originalHeaders,
+    required List<int> rowFileIndices,
+  });
+
   /// Performs background table filtering and sorting on a dedicated isolate worker.
   Future<List<int>> filterAndSortTable({
     required CsvTableMetadata metadata,

@@ -85,6 +85,49 @@ class CsvRepositoryImpl implements CsvRepository {
       throw ParseFailure('Failed to filter and sort CSV table indices: ${e.toString()}');
     }
   }
+
+  /// Saves all pending changes — including structural (row/column ops) and
+  /// cell-level mutations — into the original CSV file.
+  ///
+  /// Parameters:
+  ///  - [columnVisibleOrder]: the final ordered list of physical column indices
+  ///  - [renamedHeaders]: physical column index → new header name
+  ///  - [originalHeaders]: original header names from metadata
+  ///  - [rowFileIndices]: resolved actual file row indices in output order
+  ///                      (-1 means a blank inserted row)
+  ///  - [mutations]: cell-level edits keyed by visual (visIdx, fileRowIndex)
+  @override
+  Future<CsvTableMetadata> saveAllChanges({
+    required CsvTableMetadata metadata,
+    required Map<CsvCellPosition, String> mutations,
+    required List<int> columnVisibleOrder,
+    required Map<int, String> renamedHeaders,
+    required List<String> originalHeaders,
+    required List<int> rowFileIndices,
+  }) async {
+    final String tempFilePath = '${metadata.filePath}.tmp';
+    try {
+      await compute(
+        _executeSaveAll,
+        IsolateSaveAllRequest(
+          filePath: metadata.filePath,
+          tempFilePath: tempFilePath,
+          mutations: mutations,
+          columnVisibleOrder: columnVisibleOrder,
+          renamedHeaders: renamedHeaders,
+          originalHeaders: originalHeaders,
+          rowFileIndices: rowFileIndices,
+        ),
+      );
+      return await _worker.indexFile(metadata.filePath);
+    } catch (e) {
+      final tempFile = File(tempFilePath);
+      if (tempFile.existsSync()) {
+        try { tempFile.deleteSync(); } catch (_) {}
+      }
+      throw FileAccessFailure('Failed to save structural changes: ${e.toString()}');
+    }
+  }
 }
 
 class IsolateSaveRequest {
@@ -200,4 +243,116 @@ String _escapeCsvCell(String cell) {
     return '"$escaped"';
   }
   return cell;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Structural save (row + column ops + cell mutations)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class IsolateSaveAllRequest {
+  final String filePath;
+  final String tempFilePath;
+  final Map<CsvCellPosition, String> mutations;
+
+  /// Ordered physical column indices for the output (after hide/delete/reorder).
+  final List<int> columnVisibleOrder;
+
+  /// Physical column index → renamed header string.
+  final Map<int, String> renamedHeaders;
+
+  /// Original header names from the metadata.
+  final List<String> originalHeaders;
+
+  /// Resolved actual file row indices in output order.
+  /// -1 = blank inserted row.
+  final List<int> rowFileIndices;
+
+  const IsolateSaveAllRequest({
+    required this.filePath,
+    required this.tempFilePath,
+    required this.mutations,
+    required this.columnVisibleOrder,
+    required this.renamedHeaders,
+    required this.originalHeaders,
+    required this.rowFileIndices,
+  });
+}
+
+Future<void> _executeSaveAll(IsolateSaveAllRequest req) async {
+  final sourceFile = File(req.filePath);
+  final tempFile = File(req.tempFilePath);
+
+  if (!sourceFile.existsSync()) {
+    throw Exception('Source CSV file not found: ${req.filePath}');
+  }
+
+  // Read all lines of the original file into an indexed list.
+  // Index 0 = header row (not data), index 1+ = data rows.
+  final allLines = await sourceFile.readAsLines();
+
+  // Pre-index mutations by file row index for O(1) lookup.
+  // Key: (fileRowIndex, visIdx) — visIdx is the visual column index used as
+  // the column coordinate in CsvCellPosition.
+  final Map<int, Map<int, String>> mutationsByRow = {};
+  for (final entry in req.mutations.entries) {
+    mutationsByRow
+        .putIfAbsent(entry.key.rowIndex, () => {})[entry.key.columnIndex] =
+        entry.value;
+  }
+
+  final IOSink sink = tempFile.openWrite();
+  try {
+    // ── Header row ─────────────────────────────────────────────────────────
+    final headerCells = req.columnVisibleOrder.map((physIdx) {
+      final original = physIdx < req.originalHeaders.length
+          ? req.originalHeaders[physIdx]
+          : 'Column $physIdx';
+      return _escapeCsvCell(req.renamedHeaders[physIdx] ?? original);
+    }).join(',');
+    sink.writeln(headerCells);
+
+    // ── Data rows ───────────────────────────────────────────────────────────
+    for (int outRowIdx = 0;
+        outRowIdx < req.rowFileIndices.length;
+        outRowIdx++) {
+      final fileRowIdx = req.rowFileIndices[outRowIdx];
+
+      if (fileRowIdx == -1) {
+        // Blank inserted row — write empty cells for each output column
+        sink.writeln(
+            List.filled(req.columnVisibleOrder.length, '').join(','));
+        continue;
+      }
+
+      // fileRowIdx is 0-based data index → file line index = fileRowIdx + 1
+      // (line 0 = header, line 1+ = data)
+      final fileLineIdx = fileRowIdx + 1;
+      final originalLine = fileLineIdx < allLines.length
+          ? allLines[fileLineIdx]
+          : '';
+      final originalCells = _parseCsvLine(originalLine);
+      final rowMutations = mutationsByRow[fileRowIdx] ?? {};
+
+      final outputCells = req.columnVisibleOrder
+          .asMap()
+          .entries
+          .map((e) {
+        final visIdx = e.key;
+        final physIdx = e.value;
+        // Cell mutation takes priority; fallback to original file value
+        return _escapeCsvCell(
+          rowMutations[visIdx] ??
+              (physIdx < originalCells.length ? originalCells[physIdx] : ''),
+        );
+      }).join(',');
+
+      sink.writeln(outputCells);
+    }
+  } finally {
+    await sink.close();
+  }
+
+  // Atomic swap: delete original, rename temp → original
+  if (sourceFile.existsSync()) sourceFile.deleteSync();
+  tempFile.renameSync(req.filePath);
 }

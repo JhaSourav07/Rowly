@@ -8,14 +8,31 @@ part 'row_operations_provider.g.dart';
 /// the already-filtered set, so they compose naturally with search & sort.
 class RowLayoutState {
   /// The ordered list of indices into [TableFilterState.visibleRowIndices].
-  /// Each entry is a "filter-level index" (0-based position in visibleRowIndices).
-  /// Hidden rows are excluded.
   final List<int> visibleOrder;
 
-  const RowLayoutState({required this.visibleOrder});
+  /// The row count at initialization — used to detect any changes.
+  final int originalRowCount;
 
-  RowLayoutState copyWith({List<int>? visibleOrder}) {
-    return RowLayoutState(visibleOrder: visibleOrder ?? this.visibleOrder);
+  const RowLayoutState({
+    required this.visibleOrder,
+    this.originalRowCount = 0,
+  });
+
+  RowLayoutState copyWith({List<int>? visibleOrder, int? originalRowCount}) {
+    return RowLayoutState(
+      visibleOrder: visibleOrder ?? this.visibleOrder,
+      originalRowCount: originalRowCount ?? this.originalRowCount,
+    );
+  }
+
+  /// True if any row-level structural change has been made since initialization.
+  bool get hasChanges {
+    if (originalRowCount == 0) return false;
+    if (visibleOrder.length != originalRowCount) return true;
+    for (int i = 0; i < visibleOrder.length; i++) {
+      if (visibleOrder[i] != i) return true;
+    }
+    return false;
   }
 }
 
@@ -27,10 +44,10 @@ class RowOperations extends _$RowOperations {
   }
 
   /// Seeds the visible order with a natural sequence of [rowCount] entries.
-  /// Call this whenever a new file is loaded or filter resets.
   void initialize(int rowCount) {
     state = RowLayoutState(
       visibleOrder: List.generate(rowCount, (i) => i),
+      originalRowCount: rowCount,
     );
   }
 

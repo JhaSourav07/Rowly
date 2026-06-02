@@ -7,7 +7,6 @@ part 'column_operations_provider.g.dart';
 /// are centralized here so that every listening widget reacts atomically.
 class ColumnLayoutState {
   /// The ordered list of physical column indices currently visible.
-  /// Hidden columns are excluded. Reordering is expressed as a permutation.
   final List<int> visibleOrder;
 
   /// Number of frozen leading columns (zero means no freeze).
@@ -16,27 +15,46 @@ class ColumnLayoutState {
   /// Map of physical column index → display name override (Rename).
   final Map<int, String> renamedHeaders;
 
+  /// The column count at the time of initialization — used to detect changes.
+  final int originalColumnCount;
+
   const ColumnLayoutState({
     required this.visibleOrder,
     required this.frozenColumnCount,
     required this.renamedHeaders,
+    this.originalColumnCount = 0,
   });
 
   ColumnLayoutState copyWith({
     List<int>? visibleOrder,
     int? frozenColumnCount,
     Map<int, String>? renamedHeaders,
+    int? originalColumnCount,
   }) {
     return ColumnLayoutState(
       visibleOrder: visibleOrder ?? this.visibleOrder,
       frozenColumnCount: frozenColumnCount ?? this.frozenColumnCount,
       renamedHeaders: renamedHeaders ?? this.renamedHeaders,
+      originalColumnCount: originalColumnCount ?? this.originalColumnCount,
     );
   }
 
   /// Returns the effective display name for a given physical column index.
   String displayName(String originalHeader, int physicalIndex) {
     return renamedHeaders[physicalIndex] ?? originalHeader;
+  }
+
+  /// True if any column-level structural change has been made since initialization.
+  bool get hasChanges {
+    if (originalColumnCount == 0) return false;
+    // Any renames?
+    if (renamedHeaders.isNotEmpty) return true;
+    // Any columns hidden, deleted, duplicated, or reordered?
+    if (visibleOrder.length != originalColumnCount) return true;
+    for (int i = 0; i < visibleOrder.length; i++) {
+      if (visibleOrder[i] != i) return true;
+    }
+    return false;
   }
 }
 
@@ -57,6 +75,7 @@ class ColumnOperations extends _$ColumnOperations {
       visibleOrder: List.generate(columnCount, (i) => i),
       frozenColumnCount: 0,
       renamedHeaders: const {},
+      originalColumnCount: columnCount,
     );
   }
 

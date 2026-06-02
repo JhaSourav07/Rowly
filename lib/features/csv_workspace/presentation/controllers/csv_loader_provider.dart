@@ -66,10 +66,50 @@ class CsvLoader extends _$CsvLoader {
     });
   }
 
+  /// Saves all changes: structural (column/row layout) + cell mutations.
+  /// [columnVisibleOrder] = ordered physical column indices to write.
+  /// [renamedHeaders] = physical index → renamed header string.
+  /// [rowFilterIndices] = rowOperationsProvider.visibleOrder (filter-level indices).
+  /// [filterToFileRow] = tableFilterProvider.visibleRowIndices.
+  Future<void> saveAllChanges({
+    required Map<CsvCellPosition, String> mutations,
+    required List<int> columnVisibleOrder,
+    required Map<int, String> renamedHeaders,
+    required List<int> rowFilterIndices,
+    required List<int> filterToFileRow,
+  }) async {
+    final metadata = state.value;
+    if (metadata == null) return;
+
+    state = const AsyncValue.loading();
+    final repository = ref.read(csvRepositoryProvider);
+
+    // Resolve row layout filter indices → actual file row indices
+    final rowFileIndices = rowFilterIndices.map((filterIdx) {
+      if (filterIdx == -1) return -1;
+      if (filterIdx < filterToFileRow.length) return filterToFileRow[filterIdx];
+      return -1;
+    }).toList();
+
+    state = await AsyncValue.guard(() async {
+      final updatedMetadata = await repository.saveAllChanges(
+        metadata: metadata,
+        mutations: mutations,
+        columnVisibleOrder: columnVisibleOrder,
+        renamedHeaders: renamedHeaders,
+        originalHeaders: metadata.headers,
+        rowFileIndices: rowFileIndices,
+      );
+      ref.read(tableEditingProvider.notifier).clearAllMutations();
+      return updatedMetadata;
+    });
+  }
+
   /// Clears the active workspace back to a clean slate.
   void closeFile() {
     state = const AsyncValue.data(null);
   }
+
 
   Future<String> _ensureMockFileExists(String fileName) async {
     final directory = Directory('/run/media/sourav/New Volume/Projects/rowly/samples');

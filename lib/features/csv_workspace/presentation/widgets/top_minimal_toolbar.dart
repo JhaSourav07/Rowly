@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/extensions/context_extensions.dart';
+import '../controllers/column_operations_provider.dart';
 import '../controllers/csv_loader_provider.dart';
+import '../controllers/row_operations_provider.dart';
 import '../controllers/table_editing_provider.dart';
+import '../controllers/table_filter_provider.dart';
 import 'formula_bar.dart';
 
 class TopMinimalToolbar extends ConsumerStatefulWidget {
@@ -22,6 +25,12 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
     final mutations = ref.watch(tableEditingProvider);
     final hasMutations = mutations.isNotEmpty;
     final editMode = ref.watch(editModeProvider);
+    final colLayout = ref.watch(columnOperationsProvider);
+    final rowLayout = ref.watch(rowOperationsProvider);
+    final filterState = ref.watch(tableFilterProvider);
+
+    // Show Save Changes whenever there are cell edits OR structural ops
+    final hasAnyChanges = hasMutations || colLayout.hasChanges || rowLayout.hasChanges;
 
     final metadata = csvState.value;
     final activeFile = metadata != null ? metadata.filePath.split(RegExp(r'[/\\]')).last : 'sales_data_2024.csv';
@@ -267,18 +276,41 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
 
                     const SizedBox(width: 8),
 
-                    // Save Changes button
-                    if (hasMutations)
+                    // Save Changes button — appears for ANY pending change
+                    if (hasAnyChanges)
                       ElevatedButton.icon(
-                        onPressed: () => ref.read(csvLoaderProvider.notifier).saveActiveEdits(mutations),
-                        icon: const Icon(Icons.save_outlined, size: 12, color: AppColors.textPrimary),
-                        label: Text(isCompact ? 'Save' : 'Save Changes', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          // Always use saveAllChanges so structural ops are included
+                          ref.read(csvLoaderProvider.notifier).saveAllChanges(
+                            mutations: mutations,
+                            columnVisibleOrder: colLayout.visibleOrder.isEmpty
+                                ? List.generate(
+                                    metadata?.headers.length ?? 0, (i) => i)
+                                : colLayout.visibleOrder,
+                            renamedHeaders: colLayout.renamedHeaders,
+                            rowFilterIndices: rowLayout.visibleOrder.isEmpty
+                                ? List.generate(
+                                    filterState.visibleRowIndices.length,
+                                    (i) => i)
+                                : rowLayout.visibleOrder,
+                            filterToFileRow: filterState.visibleRowIndices,
+                          );
+                        },
+                        icon: const Icon(Icons.save_outlined,
+                            size: 12, color: AppColors.textPrimary),
+                        label: Text(
+                          isCompact ? 'Save' : 'Save Changes',
+                          style: const TextStyle(
+                              fontSize: 11.0, fontWeight: FontWeight.bold),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accent,
                           foregroundColor: AppColors.textPrimary,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           visualDensity: VisualDensity.compact,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4)),
                         ),
                       ),
 
