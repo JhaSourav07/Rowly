@@ -15,6 +15,7 @@ class VirtualGridRow extends ConsumerWidget {
   final int columnCount;
   final CsvTableMetadata metadata;
   final ValueNotifier<double> horizontalScrollOffset;
+  final FocusNode gridFocusNode;
 
   const VirtualGridRow({
     super.key,
@@ -22,6 +23,7 @@ class VirtualGridRow extends ConsumerWidget {
     required this.columnCount,
     required this.metadata,
     required this.horizontalScrollOffset,
+    required this.gridFocusNode,
   });
 
   Widget _buildSortIcon(WidgetRef ref, int colIndex) {
@@ -85,6 +87,9 @@ class VirtualGridRow extends ConsumerWidget {
                   child: GestureDetector(
                     onTap: () {
                       if (isHeadersRow) return;
+                      
+                      // Focus the grid focus node to enable arrow key navigation
+                      gridFocusNode.requestFocus();
                       
                       final currentSelection = ref.read(selectedCellProvider);
                       if (currentSelection == cellPosition) {
