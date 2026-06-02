@@ -9,6 +9,7 @@ class AppColors {
   static const Color borderMuted = Color(0xFF242933);
   
   static const Color accent = Color(0xFF5E81AC);
+  static const Color successGreen = Color(0xFF31B057);
   
   static const Color textPrimary = Color(0xFFECEFF4);
   static const Color textSecondary = Color(0xFFD8DEE9);

@@ -3,56 +3,286 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/typography.dart';
-import '../../../../shared/constants/layout_constants.dart';
 import '../../../../shared/extensions/context_extensions.dart';
 import '../../domain/models/csv_cell.dart';
 import '../../domain/models/csv_table.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_viewport_provider.dart';
 
-class SpreadsheetGrid extends StatelessWidget {
+class SpreadsheetGrid extends ConsumerStatefulWidget {
   final CsvTableMetadata metadata;
 
   const SpreadsheetGrid({super.key, required this.metadata});
 
   @override
+  ConsumerState<SpreadsheetGrid> createState() => _SpreadsheetGridState();
+}
+
+class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
+  late final ScrollController _scrollController;
+  int _currentPage = 1;
+  static const int _rowsPerPage = 50;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  int get _totalPages => (widget.metadata.totalRows / _rowsPerPage).ceil();
+
+  void _navigateToPage(int page) {
+    if (page < 1 || page > _totalPages) return;
+    setState(() {
+      _currentPage = page;
+    });
+    final double targetOffset = (page - 1) * _rowsPerPage * 32.0;
+    _scrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  String _getColumnLetter(int index) {
+    String letter = '';
+    int temp = index;
+    while (temp >= 0) {
+      letter = String.fromCharCode((temp % 26) + 65) + letter;
+      temp = (temp ~/ 26) - 1;
+    }
+    return letter;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final selectedCell = ref.watch(selectedCellProvider);
+
     return Column(
       children: [
-        // 1. Static Sticky Column Headers Row
+        // 1. Column Letter Index Sticky Row (A, B, C...)
         Container(
-          height: LayoutConstants.kDefaultRowHeight,
+          height: 28.0,
           decoration: const BoxDecoration(
             color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.borderMuted, width: 1.5)),
+            border: Border(
+              bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+            ),
           ),
           child: Row(
-            children: metadata.headers.map((headerTitle) => Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                alignment: Alignment.centerLeft,
+            children: [
+              // Left spacer aligning with row indices
+              Container(
+                width: 50.0,
+                height: 28.0,
                 decoration: const BoxDecoration(
-                  border: Border(right: BorderSide(color: AppColors.borderSubtle)),
-                ),
-                child: Text(
-                  headerTitle.toUpperCase(),
-                  style: context.textTheme.titleMedium,
-                  overflow: TextOverflow.ellipsis,
+                  color: AppColors.surface,
+                  border: Border(
+                    right: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+                  ),
                 ),
               ),
-            )).toList(),
+              // Letter columns
+              Expanded(
+                child: Row(
+                  children: List.generate(widget.metadata.headers.length, (colIndex) {
+                    final isColFocused = selectedCell?.columnIndex == colIndex;
+                    return Expanded(
+                      child: Container(
+                        height: 28.0,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: const BorderSide(color: AppColors.borderSubtle, width: 0.5),
+                            bottom: BorderSide(
+                              color: isColFocused ? AppColors.successGreen : Colors.transparent,
+                              width: isColFocused ? 1.5 : 0.0,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          _getColumnLetter(colIndex),
+                          style: TextStyle(
+                            fontSize: 11.0,
+                            fontWeight: isColFocused ? FontWeight.bold : FontWeight.normal,
+                            color: isColFocused ? AppColors.successGreen : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
           ),
         ),
-        
+
         // 2. High-Performance Virtualized Row Viewport
         Expanded(
           child: ListView.builder(
-            itemCount: metadata.totalRows,
-            itemExtent: LayoutConstants.kDefaultRowHeight, // Critical performance anchor
-            scrollCacheExtent: const ScrollCacheExtent.pixels(200), // Pre-allocates rows just outside viewport for flawless transitions
+            controller: _scrollController,
+            itemCount: widget.metadata.totalRows + 1, // +1 for the headers row displayed inside grid
+            itemExtent: 32.0, // Fixed row height
+            scrollCacheExtent: const ScrollCacheExtent.pixels(200),
             itemBuilder: (context, index) {
-              return VirtualGridRow(rowIndex: index, columnCount: metadata.headers.length);
+              return VirtualGridRow(
+                rowIndex: index,
+                columnCount: widget.metadata.headers.length,
+                metadata: widget.metadata,
+              );
             },
+          ),
+        ),
+
+        // 3. Premium Interactive Footer Bar
+        Container(
+          height: 32.0,
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(
+              top: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left: Ready, Parse Performance, File size
+              Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, size: 14, color: AppColors.successGreen),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Ready',
+                    style: TextStyle(color: AppColors.successGreen, fontSize: 11.0, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 12),
+                  const VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Parsed in 0.45s',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11.0),
+                  ),
+                  const SizedBox(width: 12),
+                  const VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
+                  const SizedBox(width: 12),
+                  Text(
+                    'File size: ${(widget.metadata.fileSizeInBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11.0),
+                  ),
+                ],
+              ),
+
+              // Center: View toggles: "Table View" and "Stats"
+              Container(
+                height: 22.0,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(4.0),
+                  border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                ),
+                padding: const EdgeInsets.all(1.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(3.0),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.grid_on_outlined, size: 10, color: AppColors.successGreen),
+                          SizedBox(width: 4),
+                          Text(
+                            'Table View',
+                            style: TextStyle(color: AppColors.textPrimary, fontSize: 10.0, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Stats',
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 10.0),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Right: Pagination Controls
+              Row(
+                children: [
+                  // First page
+                  IconButton(
+                    icon: const Icon(Icons.first_page, size: 14, color: AppColors.textSecondary),
+                    onPressed: _currentPage > 1 ? () => _navigateToPage(1) : null,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 4),
+                  // Prev page
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, size: 14, color: AppColors.textSecondary),
+                    onPressed: _currentPage > 1 ? () => _navigateToPage(_currentPage - 1) : null,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 8),
+                  // Page number input visual display
+                  Container(
+                    width: 32.0,
+                    height: 18.0,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                      borderRadius: BorderRadius.circular(3.0),
+                    ),
+                    child: Text(
+                      _currentPage.toString(),
+                      style: const TextStyle(fontSize: 10.0, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'of $_totalPages',
+                    style: const TextStyle(fontSize: 11.0, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(width: 8),
+                  // Next page
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, size: 14, color: AppColors.textSecondary),
+                    onPressed: _currentPage < _totalPages ? () => _navigateToPage(_currentPage + 1) : null,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 4),
+                  // Last page
+                  IconButton(
+                    icon: const Icon(Icons.last_page, size: 14, color: AppColors.textSecondary),
+                    onPressed: _currentPage < _totalPages ? () => _navigateToPage(_totalPages) : null,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],
@@ -63,67 +293,151 @@ class SpreadsheetGrid extends StatelessWidget {
 class VirtualGridRow extends ConsumerWidget {
   final int rowIndex;
   final int columnCount;
+  final CsvTableMetadata metadata;
 
   const VirtualGridRow({
     super.key,
     required this.rowIndex,
     required this.columnCount,
+    required this.metadata,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch this specific row's data. Only rebuilds if this precise line changes.
-    final rowAsync = ref.watch(csvRowProvider(rowIndex));
     final mutations = ref.watch(tableEditingProvider);
+    final selectedCell = ref.watch(selectedCellProvider);
+    final editMode = ref.watch(editModeProvider);
+
+    final isSelectedRow = selectedCell?.rowIndex == rowIndex;
+
+    // Row index 0 contains the bold headers (Order ID, Order Date...)
+    final bool isHeadersRow = rowIndex == 0;
+
+    // Watch this specific row's data. If it is the headers row, we don't watch disk rows stream.
+    final rowAsync = isHeadersRow ? null : ref.watch(csvRowProvider(rowIndex - 1));
 
     return Container(
+      height: 32.0,
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.borderSubtle, width: 0.5)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        ),
       ),
       child: Row(
-        children: List.generate(columnCount, (colIndex) {
-          return Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              alignment: Alignment.centerLeft,
-              decoration: const BoxDecoration(
-                border: Border(right: BorderSide(color: AppColors.borderSubtle, width: 0.5)),
-              ),
-              child: rowAsync.when(
-                data: (cells) {
-                  final String initialValue = colIndex < cells.length ? cells[colIndex] : '';
-                  final position = CsvCellPosition(rowIndex: rowIndex, columnIndex: colIndex);
-                  final isMutated = mutations.containsKey(position);
-                  final String displayValue = mutations[position] ?? initialValue;
-
-                  return GestureDetector(
-                    onDoubleTap: () => _showCellEditor(context, ref, position, displayValue),
-                    behavior: HitTestBehavior.opaque,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        displayValue,
-                        style: context.textTheme.bodyLarge?.copyWith(
-                          color: isMutated ? AppColors.accent : AppColors.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  );
-                },
-                loading: () => Container(
-                  width: double.infinity,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderSubtle,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                error: (_, __) => const Icon(Icons.error_outline, size: 12, color: AppColors.error),
+        children: [
+          // 1. LEFT INDEX CELL
+          Container(
+            width: 50.0,
+            height: 32.0,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(
+                right: BorderSide(color: AppColors.borderSubtle, width: 1.0),
               ),
             ),
-          );
-        }),
+            child: Text(
+              isHeadersRow ? '1' : (rowIndex + 1).toString(),
+              style: TextStyle(
+                fontSize: 11.0,
+                color: isSelectedRow ? AppColors.successGreen : AppColors.textMuted,
+                fontWeight: isSelectedRow ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+
+          // 2. GRID CELLS DATA
+          Expanded(
+            child: Row(
+              children: List.generate(columnCount, (colIndex) {
+                final cellPosition = CsvCellPosition(rowIndex: rowIndex, columnIndex: colIndex);
+                final isSelectedCell = selectedCell == cellPosition;
+
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      ref.read(selectedCellProvider.notifier).select(cellPosition);
+                    },
+                    onDoubleTap: () {
+                      if (isHeadersRow) return; // Headers row is read-only
+
+                      if (editMode) {
+                        if (rowAsync != null && rowAsync.hasValue) {
+                          final cells = rowAsync.value ?? [];
+                          final diskValue = colIndex < cells.length ? cells[colIndex] : '';
+                          _showCellEditor(context, ref, cellPosition, mutations[cellPosition] ?? diskValue);
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Spreadsheet is in Read Only mode. Toggle Edit Mode in action bar to edit.'),
+                          ),
+                        );
+                      }
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      height: 32.0,
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      alignment: Alignment.centerLeft,
+                      decoration: BoxDecoration(
+                        border: isSelectedCell
+                            ? Border.all(color: AppColors.successGreen, width: 1.5)
+                            : const Border(
+                                right: BorderSide(color: AppColors.borderSubtle, width: 0.5),
+                                bottom: BorderSide(color: AppColors.borderSubtle, width: 0.5),
+                              ),
+                      ),
+                      child: isHeadersRow
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    metadata.headers[colIndex],
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13.0,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(Icons.filter_alt_outlined, size: 10, color: AppColors.textMuted),
+                              ],
+                            )
+                          : rowAsync!.when(
+                              data: (cells) {
+                                final String initialValue = colIndex < cells.length ? cells[colIndex] : '';
+                                final isMutated = mutations.containsKey(cellPosition);
+                                final String displayValue = mutations[cellPosition] ?? initialValue;
+
+                                return Text(
+                                  displayValue,
+                                  style: context.textTheme.bodyLarge?.copyWith(
+                                    color: isMutated ? AppColors.accent : AppColors.textPrimary,
+                                    fontSize: 13.0,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
+                              loading: () => Container(
+                                width: double.infinity,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: AppColors.borderSubtle,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              error: (_, __) => const Icon(Icons.error_outline, size: 12, color: AppColors.error),
+                            ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -181,6 +495,8 @@ class VirtualGridRow extends ConsumerWidget {
                     const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () {
+                        // Position inside grid is index, which matches rowIndex + 1 for mutations, wait!
+                        // Let's store mutated position where rowIndex matches rowIndex in list.
                         ref.read(tableEditingProvider.notifier).updateCell(position, textController.text);
                         Navigator.of(context).pop();
                       },

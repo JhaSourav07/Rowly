@@ -21,3 +21,36 @@ class TableEditing extends _$TableEditing {
     state = const {};
   }
 }
+
+@riverpod
+class SelectedCell extends _$SelectedCell {
+  @override
+  CsvCellPosition? build() {
+    return null;
+  }
+
+  void select(CsvCellPosition position) {
+    state = position;
+  }
+
+  void clear() {
+    state = null;
+  }
+}
+
+@riverpod
+class EditMode extends _$EditMode {
+  @override
+  bool build() {
+    // True for Edit Mode, false for Read Only mode
+    return true;
+  }
+
+  void toggle() {
+    state = !state;
+  }
+
+  void setEditMode(bool mode) {
+    state = mode;
+  }
+}
