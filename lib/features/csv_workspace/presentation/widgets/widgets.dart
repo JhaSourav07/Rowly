@@ -7,3 +7,4 @@ export 'column_header_row.dart';
 export 'virtual_grid_row.dart';
 export 'inline_cell_text_field.dart';
 export 'column_context_menu.dart';
+export 'row_context_menu.dart';

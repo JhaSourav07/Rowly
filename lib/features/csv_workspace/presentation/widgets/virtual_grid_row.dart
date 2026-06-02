@@ -6,10 +6,12 @@ import '../../domain/models/csv_cell.dart';
 import '../../domain/models/csv_table.dart';
 import '../controllers/column_operations_provider.dart';
 import '../controllers/column_widths_provider.dart';
+import '../controllers/row_operations_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
 import '../controllers/table_viewport_provider.dart';
 import 'inline_cell_text_field.dart';
+import 'row_context_menu.dart';
 
 class VirtualGridRow extends ConsumerWidget {
   final int rowIndex;
@@ -48,20 +50,44 @@ class VirtualGridRow extends ConsumerWidget {
     final inlineEditingCell = ref.watch(inlineEditingCellProvider);
     final columnWidths = ref.watch(columnWidthsProvider);
     final layoutState = ref.watch(columnOperationsProvider);
+    final rowLayoutState = ref.watch(rowOperationsProvider);
 
     final bool isHeadersRow = rowIndex == 0;
 
-    // Translate the visual position to the actual file index
-    final int actualFileRowIndex = isHeadersRow
-        ? -1
-        : (rowIndex - 1 < filterState.visibleRowIndices.length
-            ? filterState.visibleRowIndices[rowIndex - 1]
-            : -1);
+    // visiblePos = position in rowLayoutState.visibleOrder (0-based data row)
+    final int visiblePos = rowIndex - 1;
 
-    final isSelectedRow = selectedCell?.rowIndex == actualFileRowIndex && !isHeadersRow;
+    // Resolve actualFileRowIndex through the two-layer mapping:
+    //   rowLayoutState.visibleOrder[visiblePos] → filterIdx
+    //   filterState.visibleRowIndices[filterIdx] → actual file row
+    int actualFileRowIndex = -1;
+    if (!isHeadersRow) {
+      final rowOrder = rowLayoutState.visibleOrder;
+      if (rowOrder.isNotEmpty &&
+          visiblePos >= 0 &&
+          visiblePos < rowOrder.length) {
+        final filterIdx = rowOrder[visiblePos];
+        if (filterIdx == -1) {
+          // -1 sentinel = blank inserted row
+          actualFileRowIndex = -1;
+        } else if (filterIdx < filterState.visibleRowIndices.length) {
+          actualFileRowIndex = filterState.visibleRowIndices[filterIdx];
+        }
+      } else if (rowOrder.isEmpty &&
+          visiblePos >= 0 &&
+          visiblePos < filterState.visibleRowIndices.length) {
+        // Provider not yet initialised — fall back to direct filter mapping
+        actualFileRowIndex = filterState.visibleRowIndices[visiblePos];
+      }
+    }
+
+    final isSelectedRow =
+        selectedCell?.rowIndex == actualFileRowIndex && !isHeadersRow;
 
     // Watch this specific row's data.
-    final rowAsync = isHeadersRow ? null : ref.watch(csvRowProvider(actualFileRowIndex));
+    final rowAsync = (isHeadersRow || actualFileRowIndex == -1)
+        ? null
+        : ref.watch(csvRowProvider(actualFileRowIndex));
 
     // Use visibleOrder from columnOperationsProvider; fall back to natural order
     final visibleOrder = layoutState.visibleOrder.isEmpty
@@ -69,6 +95,9 @@ class VirtualGridRow extends ConsumerWidget {
         : layoutState.visibleOrder;
 
     final displayColumnCount = visibleOrder.length;
+
+    // Display row number shown to the user (header = row 1)
+    final displayRowNumber = rowIndex + 1;
 
     return Container(
       height: 32.0,
@@ -104,7 +133,7 @@ class VirtualGridRow extends ConsumerWidget {
                   width: width,
                   child: GestureDetector(
                     onTap: () {
-                      if (isHeadersRow) return;
+                      if (isHeadersRow || actualFileRowIndex == -1) return;
 
                       gridFocusNode.requestFocus();
 
@@ -179,7 +208,10 @@ class VirtualGridRow extends ConsumerWidget {
                                 ],
                               ),
                             )
-                          : rowAsync!.when(
+                          : (actualFileRowIndex == -1 || rowAsync == null)
+                              // Blank row (inserted via row ops) — render empty cells
+                              ? const SizedBox.shrink()
+                              : rowAsync.when(
                               data: (cells) {
                                 // Read the physical column index in disk data
                                 final String initialValue =
@@ -229,7 +261,7 @@ class VirtualGridRow extends ConsumerWidget {
             ),
           ),
 
-          // 2. LEFT INDEX CELL (drawn on top, sticky!)
+          // 2. LEFT INDEX CELL (drawn on top, sticky, right-click opens row menu)
           Positioned(
             left: 0,
             top: 0,
@@ -240,25 +272,44 @@ class VirtualGridRow extends ConsumerWidget {
               builder: (context, offset, child) {
                 return Transform.translate(
                   offset: Offset(offset, 0.0),
-                  child: Container(
-                    height: 32.0,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border(
-                        right: BorderSide(color: AppColors.borderSubtle, width: 1.0),
-                      ),
-                    ),
-                    child: Text(
-                      isHeadersRow ? '1' : (rowIndex + 1).toString(),
-                      style: TextStyle(
-                        fontSize: 11.0,
-                        color: isSelectedRow
-                            ? AppColors.successGreen
-                            : AppColors.textMuted,
-                        fontWeight: isSelectedRow
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                  child: Listener(
+                    onPointerDown: (event) {
+                      // Right-click: open row context menu (skip header row)
+                      if (event.buttons == 2 && !isHeadersRow) {
+                        showRowContextMenu(
+                          context: context,
+                          ref: ref,
+                          visiblePos: visiblePos,
+                          displayRowNumber: displayRowNumber,
+                        );
+                      }
+                    },
+                    child: MouseRegion(
+                      cursor: isHeadersRow
+                          ? MouseCursor.defer
+                          : SystemMouseCursors.contextMenu,
+                      child: Container(
+                        height: 32.0,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: AppColors.surface,
+                          border: Border(
+                            right: BorderSide(
+                                color: AppColors.borderSubtle, width: 1.0),
+                          ),
+                        ),
+                        child: Text(
+                          isHeadersRow ? '1' : displayRowNumber.toString(),
+                          style: TextStyle(
+                            fontSize: 11.0,
+                            color: isSelectedRow
+                                ? AppColors.successGreen
+                                : AppColors.textMuted,
+                            fontWeight: isSelectedRow
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
 import '../controllers/column_operations_provider.dart';
 import '../controllers/column_widths_provider.dart';
+import '../controllers/row_operations_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
 import '../../domain/models/csv_cell.dart';
@@ -40,20 +41,25 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
       _horizontalScrollOffset.value = _horizontalScrollController.offset;
     });
 
-    // Initialize global column widths and column layout state in the providers
+    // Initialize global column widths, column layout state, and row layout in the providers
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(columnWidthsProvider.notifier).initialize(widget.metadata.headers.length);
       ref.read(columnOperationsProvider.notifier).initialize(widget.metadata.headers.length);
+      // Seed row layout from current filter state
+      final totalRows = ref.read(tableFilterProvider).visibleRowIndices.length;
+      ref.read(rowOperationsProvider.notifier).initialize(totalRows);
     });
   }
 
   @override
   void didUpdateWidget(covariant SpreadsheetGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.metadata.headers.length != widget.metadata.headers.length) {
+    if (oldWidget.metadata.filePath != widget.metadata.filePath) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(columnWidthsProvider.notifier).initialize(widget.metadata.headers.length);
         ref.read(columnOperationsProvider.notifier).initialize(widget.metadata.headers.length);
+        final totalRows = ref.read(tableFilterProvider).visibleRowIndices.length;
+        ref.read(rowOperationsProvider.notifier).initialize(totalRows);
       });
     }
   }
@@ -133,6 +139,18 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
     final filterState = ref.watch(tableFilterProvider);
     final columnWidths = ref.watch(columnWidthsProvider);
     final layoutState = ref.watch(columnOperationsProvider);
+    final rowLayoutState = ref.watch(rowOperationsProvider);
+
+    // If rowOperationsProvider hasn't been seeded yet (e.g. first render after
+    // filterState is resolved), seed it now without triggering a new rebuild.
+    if (rowLayoutState.visibleOrder.isEmpty &&
+        filterState.visibleRowIndices.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(rowOperationsProvider.notifier)
+            .initialize(filterState.visibleRowIndices.length);
+      });
+    }
 
     // Use visibleOrder length so hidden/deleted columns are excluded from width
     final visibleCount = layoutState.visibleOrder.isEmpty
@@ -225,7 +243,9 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                     Expanded(
                       child: ListView.builder(
                         controller: _scrollController,
-                        itemCount: filterState.visibleRowIndices.length + 1, // +1 for the headers row displayed inside grid
+                        itemCount: rowLayoutState.visibleOrder.isEmpty
+                            ? filterState.visibleRowIndices.length + 1
+                            : rowLayoutState.visibleOrder.length + 1, // +1 for the headers row
                         itemExtent: 32.0, // Fixed row height
                         scrollCacheExtent: const ScrollCacheExtent.pixels(200),
                         itemBuilder: (context, index) {
