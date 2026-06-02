@@ -58,7 +58,10 @@ class MainWorkspaceScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final csvState = ref.watch(csvLoaderProvider);
-    final activeFile = csvState.value?.filePath.split(Platform.pathSeparator).last;
+    final recentFiles = ref.watch(recentFilesProvider);
+
+    final activeFilePath = csvState.value?.filePath;
+    final activeFile = activeFilePath?.split(Platform.pathSeparator).last;
 
     return Scaffold(
       body: SafeArea(
@@ -163,44 +166,67 @@ class MainWorkspaceScaffold extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // FILES Section
+                          // FILES Section (Current Open File)
                           _buildSectionHeader('FILES'),
-                          _buildSidebarFileItem(
-                            context: context,
-                            title: 'sales_data_2024.csv',
-                            isActive: activeFile == 'sales_data_2024.csv' || activeFile == null,
-                          ),
-                          _buildSidebarFileItem(
-                            context: context,
-                            title: 'customers.csv',
-                            isActive: activeFile == 'customers.csv',
-                          ),
-                          _buildSidebarFileItem(
-                            context: context,
-                            title: 'products.csv',
-                            isActive: activeFile == 'products.csv',
-                          ),
+                          if (activeFilePath != null)
+                            _buildSidebarFileItem(
+                              context: context,
+                              title: activeFile!,
+                              isActive: true,
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Active file path: $activeFilePath')),
+                                );
+                              },
+                            )
+                          else
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              child: Text(
+                                'No active file open',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12.0,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
 
                           const SizedBox(height: 20.0),
 
-                          // RECENT Section
+                          // RECENT Section (Historically opened files)
                           _buildSectionHeader('RECENT'),
-                          _buildSidebarFileItem(
-                            context: context,
-                            title: 'inventory_large.csv',
-                            isActive: false,
-                          ),
-                          _buildSidebarFileItem(
-                            context: context,
-                            title: 'transactions.csv',
-                            isActive: false,
-                          ),
-                          _buildSidebarFileItem(
-                            context: context,
-                            title: 'metrics_2024.csv',
-                            isActive: false,
-                          ),
-                          _buildViewAllItem(context),
+                          if (recentFiles.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              child: Text(
+                                'No recent files loaded',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12.0,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            )
+                          else
+                            ...recentFiles.map((filePath) {
+                              final fileName = filePath.split(Platform.pathSeparator).last;
+                              final isCurrentActive = activeFilePath == filePath || 
+                                  (!filePath.contains(Platform.pathSeparator) && activeFile == fileName);
+                              
+                              return _buildSidebarFileItem(
+                                context: context,
+                                title: fileName,
+                                isActive: isCurrentActive,
+                                onTap: () async {
+                                  await ref.read(csvLoaderProvider.notifier).loadFile(filePath);
+                                },
+                                onClose: () {
+                                  ref.read(recentFilesProvider.notifier).removeFile(filePath);
+                                },
+                              );
+                            }),
+
 
                           const SizedBox(height: 20.0),
 
@@ -353,6 +379,8 @@ class MainWorkspaceScaffold extends ConsumerWidget {
     required BuildContext context,
     required String title,
     required bool isActive,
+    VoidCallback? onTap,
+    VoidCallback? onClose,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
@@ -362,11 +390,7 @@ class MainWorkspaceScaffold extends ConsumerWidget {
         border: isActive ? Border.all(color: AppColors.successGreen.withAlpha(80), width: 0.5) : null,
       ),
       child: InkWell(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('File selected: $title')),
-          );
-        },
+        onTap: onTap,
         borderRadius: BorderRadius.circular(6.0),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -389,37 +413,24 @@ class MainWorkspaceScaffold extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildViewAllItem(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(6.0),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'View all',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w400,
+              if (onClose != null)
+                GestureDetector(
+                  onTap: () {
+                    onClose();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(2.0),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.transparent,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                size: 14,
-                color: AppColors.textMuted,
-              ),
             ],
           ),
         ),

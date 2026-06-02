@@ -25,7 +25,7 @@ final csvRepositoryProvider = AutoDisposeProvider<CsvRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CsvRepositoryRef = AutoDisposeProviderRef<CsvRepository>;
-String _$csvLoaderHash() => r'2e547b536ca52069231c58998ffa1f3b568b747f';
+String _$csvLoaderHash() => r'660a918c07256dc27d7434d5fedf45763c6f2b69';
 
 /// Controls the active loading state of our workspace workspace.
 /// Uses AsyncValue to effortlessly handle Loading, Data, and Error states in the UI.
@@ -43,5 +43,20 @@ final csvLoaderProvider = AutoDisposeNotifierProvider<CsvLoader,
 );
 
 typedef _$CsvLoader = AutoDisposeNotifier<AsyncValue<CsvTableMetadata?>>;
+String _$recentFilesHash() => r'89adb04c753bea78fa9c898e106770b837264a52';
+
+/// See also [RecentFiles].
+@ProviderFor(RecentFiles)
+final recentFilesProvider =
+    AutoDisposeNotifierProvider<RecentFiles, List<String>>.internal(
+  RecentFiles.new,
+  name: r'recentFilesProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$recentFilesHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$RecentFiles = AutoDisposeNotifier<List<String>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
