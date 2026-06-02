@@ -2,8 +2,10 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/datasources/csv_isolate_worker.dart';
 import '../../data/datasources/file_accessor.dart';
 import '../../data/repositories/csv_repository_impl.dart';
-import '../../domain/repositories/csv_repository.dart';
+import '../../domain/models/csv_cell.dart';
 import '../../domain/models/csv_table.dart';
+import '../../domain/repositories/csv_repository.dart';
+import 'table_editing_provider.dart';
 
 // This boilerplate lets us use modern Riverpod features smoothly
 part 'csv_loader_provider.g.dart';
@@ -35,6 +37,23 @@ class CsvLoader extends _$CsvLoader {
     
     state = await AsyncValue.guard(() async {
       return await repository.parseAndIndexFile(filePath);
+    });
+  }
+
+  /// Atomically saves active transactional cell mutations back to the original CSV file on disk.
+  Future<void> saveActiveEdits(Map<CsvCellPosition, String> mutations) async {
+    final metadata = state.value;
+    if (metadata == null || mutations.isEmpty) return;
+
+    state = const AsyncValue.loading();
+
+    final repository = ref.read(csvRepositoryProvider);
+
+    state = await AsyncValue.guard(() async {
+      final updatedMetadata = await repository.saveChanges(metadata, mutations);
+      // Purge the transactional local state overlay upon successful disk write
+      ref.read(tableEditingProvider.notifier).clearAllMutations();
+      return updatedMetadata;
     });
   }
 

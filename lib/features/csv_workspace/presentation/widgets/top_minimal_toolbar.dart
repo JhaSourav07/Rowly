@@ -6,6 +6,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../shared/constants/layout_constants.dart';
 import '../../../../shared/extensions/context_extensions.dart';
 import '../controllers/csv_loader_provider.dart';
+import '../controllers/table_editing_provider.dart';
 
 class TopMinimalToolbar extends ConsumerWidget {
   const TopMinimalToolbar({super.key});
@@ -50,6 +51,11 @@ class TopMinimalToolbar extends ConsumerWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
           ),
+          const SizedBox(width: 8.0),
+
+          // Save Changes Action Trigger Button
+          _buildSaveButton(context, ref),
+          
           const SizedBox(width: LayoutConstants.kPaddingMD),
           
           // Operational Metadata Status Readout
@@ -71,6 +77,38 @@ class TopMinimalToolbar extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(BuildContext context, WidgetRef ref) {
+    final mutations = ref.watch(tableEditingProvider);
+    final hasMutations = mutations.isNotEmpty;
+    final csvState = ref.watch(csvLoaderProvider);
+    final isLoading = csvState.isLoading;
+
+    return OutlinedButton.icon(
+      onPressed: (hasMutations && !isLoading)
+          ? () => ref.read(csvLoaderProvider.notifier).saveActiveEdits(mutations)
+          : null,
+      icon: Icon(
+        Icons.save_outlined,
+        size: 14,
+        color: hasMutations ? AppColors.textPrimary : AppColors.textMuted,
+      ),
+      label: Text(
+        'Save Changes',
+        style: context.textTheme.bodyMedium?.copyWith(
+          color: hasMutations ? AppColors.textPrimary : AppColors.textMuted,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: hasMutations ? AppColors.accent.withAlpha(38) : AppColors.surfaceElevated,
+        side: BorderSide(
+          color: hasMutations ? AppColors.accent : AppColors.borderSubtle,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     );
   }
