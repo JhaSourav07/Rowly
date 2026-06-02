@@ -1,0 +1,114 @@
+name: Ship Rowly Production Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers the build automatically whenever you push a tag starting with 'v' (e.g., v1.0.0)
+
+jobs:
+  # ==========================================
+  # LINUX COMPILE & PACKAGE JOB
+  # ==========================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Native Linux Compilation Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++6
+
+      - name: Download App Dependencies
+        run: flutter pub get
+
+      - name: Run Riverpod Structural Code Generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Compile Native Linux Production Binary
+        run: flutter build linux --release
+
+      - name: Package Linux Bundle into Compressed Tarball
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../../rowly-linux-x64.tar.gz .
+
+      - name: Upload Linux Asset to Worker Session
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifact
+          path: rowly-linux-x64.tar.gz
+
+  # ==========================================
+  # WINDOWS COMPILE & PACKAGE JOB
+  # ==========================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Download App Dependencies
+        run: flutter pub get
+
+      - name: Run Riverpod Structural Code Generation
+        run: json/dart run build_runner build --delete-conflicting-outputs
+
+      - name: Compile Native Windows Production Executable
+        run: flutter build windows --release
+
+      - name: Package Windows Bundle into Portable Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build\windows\x64\release\bundle\* -DestinationPath rowly-windows-x64.zip
+
+      - name: Upload Windows Asset to Worker Session
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifact
+          path: rowly-windows-x64.zip
+
+  # ==========================================
+  # DEPLOY AND CREATE GITHUB RELEASE JOB
+  # ==========================================
+  create-release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux Compiled Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifact
+
+      - name: Download Windows Compiled Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifact
+
+      - name: Generate and Publish Official GitHub Release Tag
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Rowly Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+          files: |
+            rowly-linux-x64.tar.gz
+            rowly-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
