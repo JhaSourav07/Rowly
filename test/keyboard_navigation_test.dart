@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rowly/features/csv_workspace/domain/models/csv_cell.dart';
 import 'package:rowly/features/csv_workspace/domain/models/csv_table.dart';
 import 'package:rowly/features/csv_workspace/presentation/controllers/table_editing_provider.dart';
-import 'package:rowly/features/csv_workspace/presentation/controllers/table_filter_provider.dart';
 import 'package:rowly/features/csv_workspace/presentation/controllers/csv_loader_provider.dart';
 import 'package:rowly/features/csv_workspace/presentation/widgets/spreadsheet_grid.dart';
 
@@ -28,12 +27,12 @@ void main() {
       metadata = CsvTableMetadata(
         filePath: 'test.csv',
         fileSizeInBytes: 100,
-        headers: ['ID', 'Name', 'Age'],
+        headers: const ['ID', 'Name', 'Age'],
         rowByteOffsets: Uint64List.fromList([0, 10, 20]),
       );
     });
 
-    testWidgets('Arrow key navigation updates selection and scroll offsets correctly', (WidgetTester tester) async {
+    testWidgets('Arrow key navigation updates selection and scroll offsets correctly', (tester) async {
       // Set desktop screen size to prevent footer overflow in test environment
       tester.view.physicalSize = const Size(1200, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -61,7 +60,7 @@ void main() {
       final container = ProviderScope.containerOf(element);
 
       // Select initial cell: Row 0, Column 1 (First data row, Name column)
-      final initialPosition = const CsvCellPosition(rowIndex: 0, columnIndex: 1);
+      const initialPosition = CsvCellPosition(rowIndex: 0, columnIndex: 1);
       container.read(selectedCellProvider.notifier).select(initialPosition);
       await tester.pump();
 
@@ -100,7 +99,7 @@ void main() {
       );
     });
 
-    testWidgets('Arrow key navigation ignores input if inline editing is active', (WidgetTester tester) async {
+    testWidgets('Arrow key navigation ignores input if inline editing is active', (tester) async {
       // Set desktop screen size to prevent footer overflow in test environment
       tester.view.physicalSize = const Size(1200, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -127,7 +126,7 @@ void main() {
       final element = tester.element(find.byType(SpreadsheetGrid));
       final container = ProviderScope.containerOf(element);
 
-      final initialPosition = const CsvCellPosition(rowIndex: 0, columnIndex: 1);
+      const initialPosition = CsvCellPosition(rowIndex: 0, columnIndex: 1);
       container.read(selectedCellProvider.notifier).select(initialPosition);
       
       // Activate inline editing

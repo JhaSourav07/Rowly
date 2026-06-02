@@ -4,6 +4,7 @@ import '../../../../app/theme/colors.dart';
 import '../../domain/models/csv_cell.dart';
 import '../../domain/models/csv_table.dart';
 import '../controllers/table_editing_provider.dart';
+import '../controllers/table_filter_provider.dart';
 import '../controllers/table_viewport_provider.dart';
 
 class FormulaBar extends ConsumerWidget {
@@ -35,11 +36,13 @@ class FormulaBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedCell = ref.watch(selectedCellProvider);
+    final filterState = ref.watch(tableFilterProvider);
 
     String cellCoordinate = '';
     if (selectedCell != null && metadata != null) {
       final colLetter = _getColumnLetter(selectedCell.columnIndex);
-      final rowNum = selectedCell.rowIndex + 1;
+      final visualIndex = filterState.visibleRowIndices.indexOf(selectedCell.rowIndex);
+      final rowNum = visualIndex != -1 ? visualIndex + 2 : selectedCell.rowIndex + 2;
       cellCoordinate = '$colLetter$rowNum';
     }
 
