@@ -43,11 +43,9 @@ class VirtualGridRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mutations = ref.watch(tableEditingProvider);
-    final selectedCell = ref.watch(selectedCellProvider);
+    // ── Structural providers — change infrequently, full watch is fine ──────
     final editMode = ref.watch(editModeProvider);
     final filterState = ref.watch(tableFilterProvider);
-    final inlineEditingCell = ref.watch(inlineEditingCellProvider);
     final columnWidths = ref.watch(columnWidthsProvider);
     final layoutState = ref.watch(columnOperationsProvider);
     final rowLayoutState = ref.watch(rowOperationsProvider);
@@ -68,7 +66,6 @@ class VirtualGridRow extends ConsumerWidget {
           visiblePos < rowOrder.length) {
         final filterIdx = rowOrder[visiblePos];
         if (filterIdx == -1) {
-          // -1 sentinel = blank inserted row
           actualFileRowIndex = -1;
         } else if (filterIdx < filterState.visibleRowIndices.length) {
           actualFileRowIndex = filterState.visibleRowIndices[filterIdx];
@@ -76,15 +73,52 @@ class VirtualGridRow extends ConsumerWidget {
       } else if (rowOrder.isEmpty &&
           visiblePos >= 0 &&
           visiblePos < filterState.visibleRowIndices.length) {
-        // Provider not yet initialised — fall back to direct filter mapping
         actualFileRowIndex = filterState.visibleRowIndices[visiblePos];
       }
     }
 
-    final isSelectedRow =
-        selectedCell?.rowIndex == actualFileRowIndex && !isHeadersRow;
+    // ── Narrow selectors — each row only rebuilds for its OWN state ─────────
+    //
+    // selectedCellProvider: returns the selected column index if the selected
+    // cell is inside THIS row, otherwise null. A different row being selected
+    // returns null in both the old and new state → no rebuild for this row.
+    final selectedColInThisRow = ref.watch(
+      selectedCellProvider.select((cell) {
+        if (cell == null || isHeadersRow) return null;
+        if (cell.rowIndex != actualFileRowIndex) return null;
+        return cell.columnIndex;
+      }),
+    );
+    final isSelectedRow = selectedColInThisRow != null && !isHeadersRow;
 
-    // Watch this specific row's data.
+    // inlineEditingCellProvider: only the column being inline-edited in THIS row.
+    final inlineEditingColInRow = ref.watch(
+      inlineEditingCellProvider.select((cell) {
+        if (cell == null || isHeadersRow) return null;
+        if (cell.rowIndex != actualFileRowIndex) return null;
+        return cell.columnIndex;
+      }),
+    );
+
+    // tableEditingProvider: only the mutations that belong to THIS row.
+    // Riverpod compares the returned map by identity; we return a stable empty
+    // const map when there are no mutations so the select stays stable.
+    final rowMutationMap = ref.watch(
+      tableEditingProvider.select((allMutations) {
+        if (isHeadersRow || actualFileRowIndex == -1) return const <CsvCellPosition, String>{};
+        final relevant = <CsvCellPosition, String>{};
+        for (final entry in allMutations.entries) {
+          if (entry.key.rowIndex == actualFileRowIndex) {
+            relevant[entry.key] = entry.value;
+          }
+        }
+        // Return const empty map when nothing belongs to this row so
+        // the select comparison stays stable and avoids a spurious rebuild.
+        return relevant.isEmpty ? const <CsvCellPosition, String>{} : relevant;
+      }),
+    );
+
+    // Watch this specific row's disk data.
     final rowAsync = (isHeadersRow || actualFileRowIndex == -1)
         ? null
         : ref.watch(csvRowProvider(actualFileRowIndex));
@@ -98,6 +132,7 @@ class VirtualGridRow extends ConsumerWidget {
 
     // Display row number shown to the user (header = row 1)
     final displayRowNumber = rowIndex + 1;
+
 
     return Container(
       height: 32.0,
@@ -122,8 +157,8 @@ class VirtualGridRow extends ConsumerWidget {
                     ? CsvCellPosition(rowIndex: -1, columnIndex: visIdx)
                     : CsvCellPosition(rowIndex: actualFileRowIndex, columnIndex: visIdx);
 
-                final isSelectedCell = selectedCell == cellPosition && !isHeadersRow;
-                final isEditingInline = inlineEditingCell == cellPosition && !isHeadersRow;
+                final isSelectedCell = selectedColInThisRow == visIdx && !isHeadersRow;
+                final isEditingInline = inlineEditingColInRow == visIdx && !isHeadersRow;
                 final double width = columnWidths[visIdx] ?? 120.0;
 
                 // Frozen visual highlight
@@ -219,9 +254,9 @@ class VirtualGridRow extends ConsumerWidget {
                                         ? cells[physicalIndex]
                                         : '';
                                 final isMutated =
-                                    mutations.containsKey(cellPosition);
+                                    rowMutationMap.containsKey(cellPosition);
                                 final String displayValue =
-                                    mutations[cellPosition] ?? initialValue;
+                                    rowMutationMap[cellPosition] ?? initialValue;
 
                                 if (isEditingInline) {
                                   return InlineCellTextField(
