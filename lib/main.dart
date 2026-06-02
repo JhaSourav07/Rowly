@@ -27,8 +27,8 @@ class RowlyApp extends StatelessWidget {
         dividerColor: AppColors.borderSubtle,
         textTheme: const TextTheme(
           bodyLarge: AppTypography.monoData,
-          bodyMedium: AppTypography.UICommand,
-          titleMedium: AppTypography.UIHeader,
+          bodyMedium: AppTypography.uiCommand,
+          titleMedium: AppTypography.uiHeader,
         ),
       ),
       home: const MainWorkspaceScaffold(),
@@ -55,7 +55,7 @@ class MainWorkspaceScaffold extends ConsumerWidget {
                     return Center(
                       child: Text(
                         'DRAG CSV HERE OR CLICK "OPEN FILE" TO BEGIN',
-                        style: AppTypography.UIHeader.copyWith(color: AppColors.textMuted),
+                        style: AppTypography.uiHeader.copyWith(color: AppColors.textMuted),
                       ),
                     );
                   }

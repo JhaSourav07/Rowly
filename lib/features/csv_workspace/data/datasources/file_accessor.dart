@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import '../models/csv_table.dart';
+import '../../domain/models/csv_table.dart';
 
 class FileAccessor {
   const FileAccessor();

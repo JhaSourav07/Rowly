@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/constants/layout_constants.dart';
@@ -45,8 +46,7 @@ class SpreadsheetGrid extends StatelessWidget {
           child: ListView.builder(
             itemCount: metadata.totalRows,
             itemExtent: LayoutConstants.kDefaultRowHeight, // Critical performance anchor
-            prototypeItem: SizedBox(height: LayoutConstants.kDefaultRowHeight),
-            cacheExtent: 200, // Pre-allocates rows just outside viewport for flawless transitions
+            scrollCacheExtent: const ScrollCacheExtent.pixels(200), // Pre-allocates rows just outside viewport for flawless transitions
             itemBuilder: (context, index) {
               return VirtualGridRow(rowIndex: index, columnCount: metadata.headers.length);
             },

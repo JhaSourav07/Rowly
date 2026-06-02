@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/csv_table.dart';
 
@@ -40,7 +41,6 @@ class CsvIsolateWorker {
     List<int> dynamicLineBuffer = <int>[];
     
     const int newlineLF = 10;   // '\n'
-    const int carriageReturnCR = 13; // '\r'
 
     await for (final List<int> chunk in fileByteStream) {
       for (int i = 0; i < chunk.length; i++) {
