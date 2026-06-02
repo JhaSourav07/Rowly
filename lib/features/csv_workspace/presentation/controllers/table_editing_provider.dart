@@ -54,3 +54,20 @@ class EditMode extends _$EditMode {
     state = mode;
   }
 }
+
+@riverpod
+class InlineEditingCell extends _$InlineEditingCell {
+  @override
+  CsvCellPosition? build() {
+    return null;
+  }
+
+  void startEditing(CsvCellPosition position) {
+    state = position;
+  }
+
+  void stopEditing() {
+    state = null;
+  }
+}
+

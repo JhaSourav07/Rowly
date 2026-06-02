@@ -6,12 +6,22 @@ import '../../../../shared/extensions/context_extensions.dart';
 import '../controllers/csv_loader_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
+import '../controllers/table_viewport_provider.dart';
+import '../../domain/models/csv_table.dart';
+import '../../domain/models/csv_cell.dart';
 
-class TopMinimalToolbar extends ConsumerWidget {
+class TopMinimalToolbar extends ConsumerStatefulWidget {
   const TopMinimalToolbar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TopMinimalToolbar> createState() => _TopMinimalToolbarState();
+}
+
+class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
+  bool _isFormulaBarExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final csvState = ref.watch(csvLoaderProvider);
     final mutations = ref.watch(tableEditingProvider);
     final hasMutations = mutations.isNotEmpty;
@@ -23,9 +33,11 @@ class TopMinimalToolbar extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 680.0;
+        final double formulaBarHeight = _isFormulaBarExpanded ? 80.0 : 36.0;
+        final double totalHeight = 84.0 + formulaBarHeight;
 
         return Container(
-          height: 84.0,
+          height: totalHeight,
           decoration: const BoxDecoration(
             color: AppColors.surface,
             border: Border(
@@ -288,10 +300,124 @@ class TopMinimalToolbar extends ConsumerWidget {
                   ],
                 ),
               ),
+
+              // ================= ROW 3: EXCEL-STYLE FORMULA BAR =================
+              _buildFormulaBar(context, metadata, isCompact, formulaBarHeight),
             ],
           ),
         );
       },
+    );
+  }
+
+  String _getColumnLetter(int index) {
+    String letter = '';
+    int temp = index;
+    while (temp >= 0) {
+      letter = String.fromCharCode((temp % 26) + 65) + letter;
+      temp = (temp ~/ 26) - 1;
+    }
+    return letter;
+  }
+
+  Widget _buildFormulaBar(BuildContext context, CsvTableMetadata? metadata, bool isCompact, double formulaBarHeight) {
+    final selectedCell = ref.watch(selectedCellProvider);
+
+    String cellCoordinate = '';
+    if (selectedCell != null && metadata != null) {
+      final colLetter = _getColumnLetter(selectedCell.columnIndex);
+      final rowNum = selectedCell.rowIndex + 1;
+      cellCoordinate = '$colLetter$rowNum';
+    }
+
+    return Container(
+      height: formulaBarHeight,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: _isFormulaBarExpanded ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          // Cell Coordinate Indicator
+          Container(
+            width: 60.0,
+            height: 28.0,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(4.0),
+              border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+            child: Text(
+              cellCoordinate.isEmpty ? '--' : cellCoordinate,
+              style: const TextStyle(
+                color: AppColors.successGreen,
+                fontSize: 11.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: EdgeInsets.only(top: _isFormulaBarExpanded ? 6.0 : 0.0),
+            child: const Icon(Icons.functions, size: 14, color: AppColors.textMuted),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: _isFormulaBarExpanded ? 60.0 : 20.0,
+            child: const VerticalDivider(color: AppColors.borderSubtle, width: 1),
+          ),
+          const SizedBox(width: 8),
+
+          // Formula input field
+          Expanded(
+            child: selectedCell == null
+                ? const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Select a cell to view or edit formulas/values',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11.0, fontStyle: FontStyle.italic),
+                    ),
+                  )
+                : _FormulaBarInput(
+                    selectedCell: selectedCell,
+                    isExpanded: _isFormulaBarExpanded,
+                  ),
+          ),
+
+          // Excel-Style Expand/Collapse Chevron Button
+          const SizedBox(width: 8),
+          SizedBox(
+            height: _isFormulaBarExpanded ? 60.0 : 20.0,
+            child: const VerticalDivider(color: AppColors.borderSubtle, width: 1),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: EdgeInsets.only(top: _isFormulaBarExpanded ? 4.0 : 0.0),
+            child: IconButton(
+              icon: Icon(
+                _isFormulaBarExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isFormulaBarExpanded = !_isFormulaBarExpanded;
+                });
+              },
+              tooltip: _isFormulaBarExpanded ? 'Collapse Formula Bar' : 'Expand Formula Bar',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -410,6 +536,83 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _FormulaBarInput extends ConsumerStatefulWidget {
+  final CsvCellPosition selectedCell;
+  final bool isExpanded;
+  const _FormulaBarInput({required this.selectedCell, required this.isExpanded});
+
+  @override
+  ConsumerState<_FormulaBarInput> createState() => _FormulaBarInputState();
+}
+
+class _FormulaBarInputState extends ConsumerState<_FormulaBarInput> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _updateText();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FormulaBarInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedCell != widget.selectedCell) {
+      _updateText();
+    }
+  }
+
+  void _updateText() {
+    final cells = ref.read(csvRowProvider(widget.selectedCell.rowIndex)).value ?? [];
+    final diskVal = widget.selectedCell.columnIndex < cells.length
+        ? cells[widget.selectedCell.columnIndex]
+        : '';
+    final mutations = ref.read(tableEditingProvider);
+    final currentVal = mutations[widget.selectedCell] ?? diskVal;
+    _controller.text = currentVal;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(tableEditingProvider, (previous, next) {
+      final cells = ref.read(csvRowProvider(widget.selectedCell.rowIndex)).value ?? [];
+      final diskVal = widget.selectedCell.columnIndex < cells.length
+          ? cells[widget.selectedCell.columnIndex]
+          : '';
+      final nextVal = next[widget.selectedCell] ?? diskVal;
+      if (_controller.text != nextVal) {
+        _controller.text = nextVal;
+      }
+    });
+
+    final editMode = ref.watch(editModeProvider);
+
+    return TextField(
+      controller: _controller,
+      enabled: editMode,
+      maxLines: widget.isExpanded ? null : 1,
+      style: const TextStyle(fontSize: 12.0, color: AppColors.textPrimary, fontFamily: 'monospace'),
+      decoration: InputDecoration(
+        hintText: editMode ? 'Enter value...' : 'Read Only (Select edit mode to edit)',
+        hintStyle: const TextStyle(fontSize: 12.0, color: AppColors.textMuted),
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: widget.isExpanded ? const EdgeInsets.symmetric(vertical: 4.0) : const EdgeInsets.symmetric(vertical: 6.0),
+      ),
+      onChanged: (val) {
+        ref.read(tableEditingProvider.notifier).updateCell(widget.selectedCell, val);
+      },
     );
   }
 }

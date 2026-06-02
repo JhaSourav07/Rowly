@@ -50,5 +50,21 @@ final editModeProvider = AutoDisposeNotifierProvider<EditMode, bool>.internal(
 );
 
 typedef _$EditMode = AutoDisposeNotifier<bool>;
+String _$inlineEditingCellHash() => r'c6d49acc9dc84bae202ac975fd876b521c6c5c7f';
+
+/// See also [InlineEditingCell].
+@ProviderFor(InlineEditingCell)
+final inlineEditingCellProvider =
+    AutoDisposeNotifierProvider<InlineEditingCell, CsvCellPosition?>.internal(
+  InlineEditingCell.new,
+  name: r'inlineEditingCellProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$inlineEditingCellHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$InlineEditingCell = AutoDisposeNotifier<CsvCellPosition?>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
