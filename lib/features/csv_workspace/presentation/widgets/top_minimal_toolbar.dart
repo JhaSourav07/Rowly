@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
@@ -25,7 +24,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
     final editMode = ref.watch(editModeProvider);
 
     final metadata = csvState.value;
-    final activeFile = metadata?.filePath.split(Platform.pathSeparator).last ?? 'sales_data_2024.csv';
+    final activeFile = metadata != null ? metadata.filePath.split(RegExp(r'[/\\]')).last : 'sales_data_2024.csv';
 
     return LayoutBuilder(
       builder: (context, constraints) {

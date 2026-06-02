@@ -38,7 +38,8 @@ class CsvLoader extends _$CsvLoader {
     
     state = await AsyncValue.guard(() async {
       String targetPath = filePath;
-      if (!filePath.contains(Platform.pathSeparator)) {
+      final bool hasSeparator = filePath.contains('/') || filePath.contains('\\');
+      if (!hasSeparator) {
         targetPath = await _ensureMockFileExists(filePath);
       }
       final metadata = await repository.parseAndIndexFile(targetPath);

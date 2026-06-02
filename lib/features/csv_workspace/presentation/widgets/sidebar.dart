@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +27,7 @@ class Sidebar extends ConsumerWidget {
     final recentFiles = ref.watch(recentFilesProvider);
 
     final activeFilePath = csvState.value?.filePath;
-    final activeFile = activeFilePath?.split(Platform.pathSeparator).last;
+    final activeFile = activeFilePath?.split(RegExp(r'[/\\]')).last;
 
     return Container(
       width: 240.0,
@@ -162,9 +161,9 @@ class Sidebar extends ConsumerWidget {
                     )
                   else
                     ...recentFiles.map((filePath) {
-                      final fileName = filePath.split(Platform.pathSeparator).last;
+                      final fileName = filePath.split(RegExp(r'[/\\]')).last;
                       final isCurrentActive = activeFilePath == filePath || 
-                          (!filePath.contains(Platform.pathSeparator) && activeFile == fileName);
+                          (!filePath.contains('/') && !filePath.contains('\\') && activeFile == fileName);
                       
                       return _buildSidebarFileItem(
                         context: context,
