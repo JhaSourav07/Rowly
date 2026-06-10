@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'csv_loader_provider.dart';
+import 'row_operations_provider.dart';
 
 part 'table_filter_provider.g.dart';
+
+// Sentinel object used to distinguish "not provided" from "explicitly null"
+// in the copyWith pattern for nullable fields.
+const _keepExisting = Object();
 
 class TableFilterState {
   final String searchQuery;
@@ -19,13 +24,16 @@ class TableFilterState {
 
   TableFilterState copyWith({
     String? searchQuery,
-    int? sortColumnIndex,
+    // Use sentinel to distinguish "clear sort" (pass null) from "keep sort" (omit)
+    Object? sortColumnIndex = _keepExisting,
     bool? isSortAscending,
     List<int>? visibleRowIndices,
   }) {
     return TableFilterState(
       searchQuery: searchQuery ?? this.searchQuery,
-      sortColumnIndex: sortColumnIndex,
+      sortColumnIndex: identical(sortColumnIndex, _keepExisting)
+          ? this.sortColumnIndex
+          : sortColumnIndex as int?,
       isSortAscending: isSortAscending ?? this.isSortAscending,
       visibleRowIndices: visibleRowIndices ?? this.visibleRowIndices,
     );
@@ -65,9 +73,13 @@ class TableFilter extends _$TableFilter {
       return state;
     }
 
-    // New file: reset to a clean state showing all rows sequentially
-    final totalRows = metadata.totalRows;
-    final indices = List<int>.generate(totalRows, (i) => i);
+    // New file: reset to a clean state showing all rows sequentially.
+    // metadata.totalRows includes the header row at byte offset 0, so the
+    // actual number of data rows is (totalRows - 1).
+    // Indices here are 0-based data-row indices (0 = first data row, which
+    // lives at rowByteOffsets[1] in the file).
+    final dataRowCount = (metadata.totalRows - 1).clamp(0, metadata.totalRows);
+    final indices = List<int>.generate(dataRowCount, (i) => i);
     return TableFilterState(
       searchQuery: '',
       sortColumnIndex: null,
@@ -94,14 +106,24 @@ class TableFilter extends _$TableFilter {
       if (state.isSortAscending) {
         newAsc = false;
       } else {
+        // Third click: clear the sort — pass null explicitly (not the sentinel)
         newSortColumn = null;
       }
     }
 
-    state = state.copyWith(
-      sortColumnIndex: newSortColumn,
-      isSortAscending: newAsc,
-    );
+    // When clearing sort, we must pass null explicitly, not the sentinel.
+    // When setting/changing sort column, pass the new value.
+    state = newSortColumn == null
+        ? TableFilterState(
+            searchQuery: state.searchQuery,
+            sortColumnIndex: null,
+            isSortAscending: true,
+            visibleRowIndices: state.visibleRowIndices,
+          )
+        : state.copyWith(
+            sortColumnIndex: newSortColumn,
+            isSortAscending: newAsc,
+          );
     _runFilteringAndSorting();
   }
 
@@ -120,5 +142,10 @@ class TableFilter extends _$TableFilter {
     );
 
     state = state.copyWith(visibleRowIndices: updatedIndices);
+
+    // Re-seed the row layout provider so it matches the new filtered row count.
+    // Without this, the grid's visibleOrder indices go stale and cause
+    // out-of-bounds access (and visual row repetition/crashes).
+    ref.read(rowOperationsProvider.notifier).initialize(updatedIndices.length);
   }
 }

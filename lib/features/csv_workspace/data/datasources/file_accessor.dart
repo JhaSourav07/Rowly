@@ -7,24 +7,33 @@ class FileAccessor {
   const FileAccessor();
 
   /// Seeks to a precise file location and reads exactly one raw row segment.
+  /// [rowIndex] is a 0-based DATA row index (0 = first data row).
+  /// rowByteOffsets[0] is the header row, so we always add 1 to get the
+  /// correct physical file offset for the requested data row.
   Future<List<String>> readSingleRow({
     required CsvTableMetadata metadata,
     required int rowIndex,
   }) async {
-    if (rowIndex < 0 || rowIndex >= metadata.totalRows) {
+    // dataRows = totalRows - 1 (header occupies slot 0 in rowByteOffsets)
+    final int dataRows = metadata.totalRows - 1;
+    if (rowIndex < 0 || rowIndex >= dataRows) {
       throw RangeError('Target row index out of workspace operational layout bounds.');
     }
+
+    // Physical offset index: data row 0 → rowByteOffsets[1]
+    final int physicalOffsetIdx = rowIndex + 1;
 
     final RandomAccessFile fileDescriptor = await File(metadata.filePath).open(mode: FileMode.read);
     
     try {
-      final int startBytePosition = metadata.rowByteOffsets[rowIndex];
+      final int startBytePosition = metadata.rowByteOffsets[physicalOffsetIdx];
       int endBytePosition;
 
-      if (rowIndex == metadata.totalRows - 1) {
+      if (physicalOffsetIdx == metadata.totalRows - 1) {
+        // Last row in the offsets list — read to EOF
         endBytePosition = metadata.fileSizeInBytes;
       } else {
-        endBytePosition = metadata.rowByteOffsets[rowIndex + 1];
+        endBytePosition = metadata.rowByteOffsets[physicalOffsetIdx + 1];
       }
 
       final int lengthToRead = endBytePosition - startBytePosition;

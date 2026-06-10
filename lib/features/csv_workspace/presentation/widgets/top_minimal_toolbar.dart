@@ -8,6 +8,7 @@ import '../controllers/row_operations_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
 import 'formula_bar.dart';
+import 'toolbar_search_field.dart';
 
 class TopMinimalToolbar extends ConsumerStatefulWidget {
   const TopMinimalToolbar({super.key});
@@ -192,34 +193,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                     const SizedBox(width: 12),
 
                     // Search in file search field
-                    Container(
-                      width: isCompact ? 100.0 : 180.0,
-                      height: 28.0,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(6.0),
-                        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search, size: 14, color: AppColors.textMuted),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: TextField(
-                              style: const TextStyle(fontSize: 11.0, color: AppColors.textPrimary),
-                              decoration: InputDecoration(
-                                hintText: isCompact ? 'Find...' : 'Search in file...',
-                                hintStyle: TextStyle(fontSize: 11.0, color: AppColors.textMuted.withAlpha(180)),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ToolbarSearchField(isCompact: isCompact),
 
                     const Spacer(),
 
