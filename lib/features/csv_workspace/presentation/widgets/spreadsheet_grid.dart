@@ -86,8 +86,8 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
     if (itemOffset + 32.0 > currentScroll + viewportHeight) {
       _scrollController.jumpTo(itemOffset + 32.0 - viewportHeight);
     }
-    // If the item is above the viewport (excluding the visual header row if listViewIndex > 0)
-    else if (listViewIndex > 0 && itemOffset < currentScroll) {
+    // If the item is above the viewport
+    else if (itemOffset < currentScroll) {
       _scrollController.jumpTo(itemOffset);
     }
   }
@@ -193,7 +193,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                     ref.read(selectedCellProvider.notifier).select(
                       CsvCellPosition(rowIndex: newPhysicalRow, columnIndex: selectedCell.columnIndex),
                     );
-                    _scrollToSelectedCell(currentVisualIndex + 2); // +2 because list view index 0 is headers row!
+                    _scrollToSelectedCell(currentVisualIndex + 1);
                     return KeyEventResult.handled;
                   }
                 } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -202,7 +202,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                     ref.read(selectedCellProvider.notifier).select(
                       CsvCellPosition(rowIndex: newPhysicalRow, columnIndex: selectedCell.columnIndex),
                     );
-                    _scrollToSelectedCell(currentVisualIndex); // visualIndex - 1 + 1 = visualIndex!
+                    _scrollToSelectedCell(currentVisualIndex - 1);
                     return KeyEventResult.handled;
                   }
                 } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -250,8 +250,8 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                           child: ListView.builder(
                             controller: _scrollController,
                             itemCount: rowLayoutState.visibleOrder.isEmpty
-                                ? filterState.visibleRowIndices.length + 1
-                                : rowLayoutState.visibleOrder.length + 1, // +1 for the headers row
+                                ? filterState.visibleRowIndices.length
+                                : rowLayoutState.visibleOrder.length,
                             itemExtent: 32.0, // Fixed row height
                             scrollCacheExtent: const ScrollCacheExtent.pixels(200),
                             itemBuilder: (context, index) {

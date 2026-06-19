@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/datasources/csv_isolate_worker.dart';
+import '../../data/datasources/excel_converter.dart';
 import '../../data/datasources/file_accessor.dart';
 import '../../data/repositories/csv_repository_impl.dart';
 import '../../domain/models/csv_cell.dart';
@@ -30,7 +31,7 @@ class CsvLoader extends _$CsvLoader {
     return const AsyncValue.data(null);
   }
 
-  /// Opens and indexes a CSV file, pushing updates cleanly to the listening user interface.
+  /// Opens and indexes a CSV or Excel file, pushing updates cleanly to the listening user interface.
   Future<void> loadFile(String filePath) async {
     state = const AsyncValue.loading();
     
@@ -42,6 +43,20 @@ class CsvLoader extends _$CsvLoader {
       if (!hasSeparator) {
         targetPath = await _ensureMockFileExists(filePath);
       }
+
+      final bool isExcel = targetPath.toLowerCase().endsWith('.xlsx') || targetPath.toLowerCase().endsWith('.xls');
+      if (isExcel) {
+        final tempDir = Directory.systemTemp;
+        final String fileName = targetPath.split(RegExp(r'[/\\]')).last;
+        final String tempCsvPath = '${tempDir.path}/$fileName.csv';
+        await ExcelConverter.convertExcelToCsv(targetPath, tempCsvPath);
+        
+        ref.read(excelFilePathProvider.notifier).setPath(targetPath);
+        targetPath = tempCsvPath;
+      } else {
+        ref.read(excelFilePathProvider.notifier).setPath(null);
+      }
+
       final metadata = await repository.parseAndIndexFile(targetPath);
       // Register path in recent files
       ref.read(recentFilesProvider.notifier).addFile(filePath);
@@ -137,6 +152,13 @@ class CsvLoader extends _$CsvLoader {
         originalHeaders: metadata.headers,
         rowFileIndices: trimmedRowFileIndices,
       );
+
+      // If we are working on an Excel file, sync the newly saved CSV back to the Excel file
+      final excelPath = ref.read(excelFilePathProvider);
+      if (excelPath != null) {
+        await ExcelConverter.convertCsvToExcel(updatedMetadata.filePath, excelPath);
+      }
+
       ref.read(tableEditingProvider.notifier).clearAllMutations();
       return updatedMetadata;
     });
@@ -144,6 +166,7 @@ class CsvLoader extends _$CsvLoader {
 
   /// Clears the active workspace back to a clean slate.
   void closeFile() {
+    ref.read(excelFilePathProvider.notifier).setPath(null);
     state = const AsyncValue.data(null);
   }
 
@@ -235,4 +258,12 @@ class RecentFiles extends _$RecentFiles {
   void removeFile(String filePath) {
     state = state.where((p) => p != filePath).toList();
   }
+}
+
+@riverpod
+class ExcelFilePath extends _$ExcelFilePath {
+  @override
+  String? build() => null;
+
+  void setPath(String? path) => state = path;
 }

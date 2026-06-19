@@ -31,17 +31,7 @@ class VirtualGridRow extends ConsumerWidget {
     required this.viewportWidth,
   });
 
-  Widget _buildSortIcon(WidgetRef ref, int visIdx) {
-    final filterState = ref.watch(tableFilterProvider);
-    if (filterState.sortColumnIndex == visIdx) {
-      return Icon(
-        filterState.isSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-        size: 12,
-        color: AppColors.successGreen,
-      );
-    }
-    return const Icon(Icons.filter_alt_outlined, size: 10, color: AppColors.textMuted);
-  }
+
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,31 +42,27 @@ class VirtualGridRow extends ConsumerWidget {
     final layoutState = ref.watch(columnOperationsProvider);
     final rowLayoutState = ref.watch(rowOperationsProvider);
 
-    final bool isHeadersRow = rowIndex == 0;
-
     // visiblePos = position in rowLayoutState.visibleOrder (0-based data row)
-    final int visiblePos = rowIndex - 1;
+    final int visiblePos = rowIndex;
 
     // Resolve actualFileRowIndex through the two-layer mapping:
     //   rowLayoutState.visibleOrder[visiblePos] → filterIdx
     //   filterState.visibleRowIndices[filterIdx] → actual file row
     int actualFileRowIndex = -1;
-    if (!isHeadersRow) {
-      final rowOrder = rowLayoutState.visibleOrder;
-      if (rowOrder.isNotEmpty &&
-          visiblePos >= 0 &&
-          visiblePos < rowOrder.length) {
-        final filterIdx = rowOrder[visiblePos];
-        if (filterIdx == -1) {
-          actualFileRowIndex = -1;
-        } else if (filterIdx < filterState.visibleRowIndices.length) {
-          actualFileRowIndex = filterState.visibleRowIndices[filterIdx];
-        }
-      } else if (rowOrder.isEmpty &&
-          visiblePos >= 0 &&
-          visiblePos < filterState.visibleRowIndices.length) {
-        actualFileRowIndex = filterState.visibleRowIndices[visiblePos];
+    final rowOrder = rowLayoutState.visibleOrder;
+    if (rowOrder.isNotEmpty &&
+        visiblePos >= 0 &&
+        visiblePos < rowOrder.length) {
+      final filterIdx = rowOrder[visiblePos];
+      if (filterIdx == -1) {
+        actualFileRowIndex = -1;
+      } else if (filterIdx < filterState.visibleRowIndices.length) {
+        actualFileRowIndex = filterState.visibleRowIndices[filterIdx];
       }
+    } else if (rowOrder.isEmpty &&
+        visiblePos >= 0 &&
+        visiblePos < filterState.visibleRowIndices.length) {
+      actualFileRowIndex = filterState.visibleRowIndices[visiblePos];
     }
 
     // ── Narrow selectors — each row only rebuilds for its OWN state ─────────
@@ -86,17 +72,17 @@ class VirtualGridRow extends ConsumerWidget {
     // returns null in both the old and new state → no rebuild for this row.
     final selectedColInThisRow = ref.watch(
       selectedCellProvider.select((cell) {
-        if (cell == null || isHeadersRow) return null;
+        if (cell == null) return null;
         if (cell.rowIndex != actualFileRowIndex) return null;
         return cell.columnIndex;
       }),
     );
-    final isSelectedRow = selectedColInThisRow != null && !isHeadersRow;
+    final isSelectedRow = selectedColInThisRow != null;
 
     // inlineEditingCellProvider: only the column being inline-edited in THIS row.
     final inlineEditingColInRow = ref.watch(
       inlineEditingCellProvider.select((cell) {
-        if (cell == null || isHeadersRow) return null;
+        if (cell == null) return null;
         if (cell.rowIndex != actualFileRowIndex) return null;
         return cell.columnIndex;
       }),
@@ -107,7 +93,7 @@ class VirtualGridRow extends ConsumerWidget {
     // const map when there are no mutations so the select stays stable.
     final rowMutationMap = ref.watch(
       tableEditingProvider.select((allMutations) {
-        if (isHeadersRow || actualFileRowIndex == -1) return const <CsvCellPosition, String>{};
+        if (actualFileRowIndex == -1) return const <CsvCellPosition, String>{};
         final relevant = <CsvCellPosition, String>{};
         for (final entry in allMutations.entries) {
           if (entry.key.rowIndex == actualFileRowIndex) {
@@ -121,7 +107,7 @@ class VirtualGridRow extends ConsumerWidget {
     );
 
     // Watch this specific row's disk data.
-    final rowAsync = (isHeadersRow || actualFileRowIndex == -1)
+    final rowAsync = (actualFileRowIndex == -1)
         ? null
         : ref.watch(csvRowProvider(actualFileRowIndex));
 
@@ -197,12 +183,10 @@ class VirtualGridRow extends ConsumerWidget {
                       final visIdx = firstVisible + index;
                       final physicalIndex = visibleOrder[visIdx];
 
-                      final cellPosition = isHeadersRow
-                          ? CsvCellPosition(rowIndex: -1, columnIndex: visIdx)
-                          : CsvCellPosition(rowIndex: actualFileRowIndex, columnIndex: visIdx);
+                      final cellPosition = CsvCellPosition(rowIndex: actualFileRowIndex, columnIndex: visIdx);
 
-                      final isSelectedCell = selectedColInThisRow == visIdx && !isHeadersRow;
-                      final isEditingInline = inlineEditingColInRow == visIdx && !isHeadersRow;
+                      final isSelectedCell = selectedColInThisRow == visIdx;
+                      final isEditingInline = inlineEditingColInRow == visIdx;
                       final double width = columnWidths[visIdx] ?? 120.0;
 
                       final isFrozen = visIdx < layoutState.frozenColumnCount;
@@ -211,7 +195,7 @@ class VirtualGridRow extends ConsumerWidget {
                         width: width,
                         child: GestureDetector(
                           onTap: () {
-                            if (isHeadersRow || actualFileRowIndex == -1) return;
+                            if (actualFileRowIndex == -1) return;
 
                             gridFocusNode.requestFocus();
 
@@ -254,39 +238,7 @@ class VirtualGridRow extends ConsumerWidget {
                                           : BorderSide.none,
                                     ),
                             ),
-                            child: isHeadersRow
-                                ? GestureDetector(
-                                    onTap: () {
-                                      ref
-                                          .read(tableFilterProvider.notifier)
-                                          .toggleSortColumn(visIdx);
-                                    },
-                                    behavior: HitTestBehavior.opaque,
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            layoutState.displayName(
-                                              physicalIndex < metadata.headers.length
-                                                  ? metadata.headers[physicalIndex]
-                                                  : '',
-                                              physicalIndex,
-                                            ),
-                                            style: const TextStyle(
-                                              color: AppColors.textSecondary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13.0,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        _buildSortIcon(ref, visIdx),
-                                      ],
-                                    ),
-                                  )
-                                : (actualFileRowIndex == -1 || rowAsync == null)
+                            child: (actualFileRowIndex == -1 || rowAsync == null)
                                     ? const SizedBox.shrink()
                                     : rowAsync.when(
                                         data: (cells) {
@@ -354,8 +306,8 @@ class VirtualGridRow extends ConsumerWidget {
                   offset: Offset(offset, 0.0),
                   child: Listener(
                     onPointerDown: (event) {
-                      // Right-click: open row context menu (skip header row)
-                      if (event.buttons == 2 && !isHeadersRow) {
+                      // Right-click: open row context menu
+                      if (event.buttons == 2) {
                         showRowContextMenu(
                           context: context,
                           ref: ref,
@@ -365,9 +317,7 @@ class VirtualGridRow extends ConsumerWidget {
                       }
                     },
                     child: MouseRegion(
-                      cursor: isHeadersRow
-                          ? MouseCursor.defer
-                          : SystemMouseCursors.contextMenu,
+                      cursor: SystemMouseCursors.contextMenu,
                       child: Container(
                         height: 32.0,
                         alignment: Alignment.center,
@@ -379,7 +329,7 @@ class VirtualGridRow extends ConsumerWidget {
                           ),
                         ),
                         child: Text(
-                          isHeadersRow ? '1' : displayRowNumber.toString(),
+                          displayRowNumber.toString(),
                           style: TextStyle(
                             fontSize: 11.0,
                             color: isSelectedRow

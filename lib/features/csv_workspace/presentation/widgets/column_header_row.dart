@@ -30,6 +30,18 @@ class ColumnHeaderRow extends ConsumerWidget {
     return letter;
   }
 
+  Widget _buildSortIcon(WidgetRef ref, int visIdx) {
+    final filterState = ref.watch(tableFilterProvider);
+    if (filterState.sortColumnIndex == visIdx) {
+      return Icon(
+        filterState.isSortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+        size: 11,
+        color: AppColors.successGreen,
+      );
+    }
+    return const Icon(Icons.filter_alt_outlined, size: 9, color: AppColors.textMuted);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedCell = ref.watch(selectedCellProvider);
@@ -126,71 +138,85 @@ class ColumnHeaderRow extends ConsumerWidget {
                           clipBehavior: Clip.none,
                           children: [
                             Positioned.fill(
-                              child: Listener(
-                                onPointerDown: (event) {
-                                  if (event.buttons == 2) {
-                                    showColumnContextMenu(
-                                      context: context,
-                                      ref: ref,
-                                      metadata: metadata,
-                                      visibleOrderIndex: visIdx,
-                                      globalPosition: event.position,
-                                    );
-                                  }
+                              child: GestureDetector(
+                                onTap: () {
+                                  ref
+                                      .read(tableFilterProvider.notifier)
+                                      .toggleSortColumn(visIdx);
                                 },
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: isFrozen
-                                        ? AppColors.accent.withAlpha(18)
-                                        : Colors.transparent,
-                                    border: Border(
-                                      right: const BorderSide(
-                                          color: AppColors.borderSubtle, width: 0.5),
-                                      bottom: BorderSide(
-                                        color: isColFocused
-                                            ? AppColors.successGreen
-                                            : Colors.transparent,
-                                        width: isColFocused ? 1.5 : 0.0,
+                                child: Listener(
+                                  onPointerDown: (event) {
+                                    if (event.buttons == 2) {
+                                      showColumnContextMenu(
+                                        context: context,
+                                        ref: ref,
+                                        metadata: metadata,
+                                        visibleOrderIndex: visIdx,
+                                        globalPosition: event.position,
+                                      );
+                                    }
+                                  },
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isFrozen
+                                          ? AppColors.accent.withAlpha(18)
+                                          : Colors.transparent,
+                                      border: Border(
+                                        right: const BorderSide(
+                                            color: AppColors.borderSubtle, width: 0.5),
+                                        bottom: BorderSide(
+                                          color: isColFocused
+                                              ? AppColors.successGreen
+                                              : Colors.transparent,
+                                          width: isColFocused ? 1.5 : 0.0,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Column(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                    child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          letter,
-                                          style: TextStyle(
-                                            fontSize: 10.0,
-                                            fontWeight: isColFocused
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: isColFocused
-                                                ? AppColors.successGreen
-                                                : AppColors.textMuted,
-                                          ),
-                                        ),
-                                        if (headerLabel.isNotEmpty) ...[
-                                          const SizedBox(height: 1),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 3.0),
-                                            child: Text(
-                                              headerLabel,
-                                              style: TextStyle(
-                                                fontSize: 9.0,
-                                                color: isFrozen
-                                                    ? AppColors.accent
-                                                    : AppColors.textMuted,
-                                                fontWeight: FontWeight.w500,
+                                        Expanded(
+                                          child: Center(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    letter,
+                                                    style: TextStyle(
+                                                      fontSize: 10.0,
+                                                      fontWeight: isColFocused
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                      color: isColFocused
+                                                          ? AppColors.successGreen
+                                                          : AppColors.textMuted,
+                                                    ),
+                                                  ),
+                                                  if (headerLabel.isNotEmpty) ...[
+                                                    const SizedBox(height: 1),
+                                                    Text(
+                                                      headerLabel,
+                                                      style: TextStyle(
+                                                        fontSize: 9.0,
+                                                        color: isFrozen
+                                                            ? AppColors.accent
+                                                            : AppColors.textMuted,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
-                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ],
+                                        ),
+                                        _buildSortIcon(ref, visIdx),
                                       ],
                                     ),
                                   ),

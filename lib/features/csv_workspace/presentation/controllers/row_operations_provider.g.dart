@@ -6,7 +6,7 @@ part of 'row_operations_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$rowOperationsHash() => r'edcdab62b8de25676f616a3fb9d7b49206aa2d79';
+String _$rowOperationsHash() => r'0573e91410e3a4124400c34f2c9593ccf82d259c';
 
 /// See also [RowOperations].
 @ProviderFor(RowOperations)

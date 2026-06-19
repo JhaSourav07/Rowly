@@ -25,7 +25,7 @@ final csvRepositoryProvider = AutoDisposeProvider<CsvRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CsvRepositoryRef = AutoDisposeProviderRef<CsvRepository>;
-String _$csvLoaderHash() => r'bf18f448151663797fe01dcc800528b09a203ee5';
+String _$csvLoaderHash() => r'6642a9d3eaaa2e54ea9a122bebc61ea2b78ba1a0';
 
 /// Controls the active loading state of our workspace workspace.
 /// Uses AsyncValue to effortlessly handle Loading, Data, and Error states in the UI.
@@ -58,5 +58,21 @@ final recentFilesProvider =
 );
 
 typedef _$RecentFiles = AutoDisposeNotifier<List<String>>;
+String _$excelFilePathHash() => r'd0136199b3404c258f80547fde68f6e3b308c0b7';
+
+/// See also [ExcelFilePath].
+@ProviderFor(ExcelFilePath)
+final excelFilePathProvider =
+    AutoDisposeNotifierProvider<ExcelFilePath, String?>.internal(
+  ExcelFilePath.new,
+  name: r'excelFilePathProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$excelFilePathHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$ExcelFilePath = AutoDisposeNotifier<String?>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

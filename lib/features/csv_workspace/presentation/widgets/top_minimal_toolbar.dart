@@ -29,12 +29,14 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
     final colLayout = ref.watch(columnOperationsProvider);
     final rowLayout = ref.watch(rowOperationsProvider);
     final filterState = ref.watch(tableFilterProvider);
+    final excelPath = ref.watch(excelFilePathProvider);
 
     // Show Save Changes whenever there are cell edits OR structural ops
     final hasAnyChanges = hasMutations || colLayout.hasChanges || rowLayout.hasChanges;
 
     final metadata = csvState.value;
-    final activeFile = metadata != null ? metadata.filePath.split(RegExp(r'[/\\]')).last : 'sales_data_2024.csv';
+    final displayPath = excelPath ?? metadata?.filePath;
+    final activeFile = displayPath != null ? displayPath.split(RegExp(r'[/\\]')).last : 'sales_data_2024.csv';
 
     return LayoutBuilder(
       builder: (context, constraints) {

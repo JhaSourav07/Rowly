@@ -11,7 +11,7 @@ class Sidebar extends ConsumerWidget {
   Future<void> _handleFileSelection(BuildContext context, WidgetRef ref) async {
     final FilePickerResult? selectionResult = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['csv', 'txt'],
+      allowedExtensions: ['csv', 'txt', 'xlsx', 'xls'],
       allowMultiple: false,
     );
 
@@ -25,8 +25,9 @@ class Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final csvState = ref.watch(csvLoaderProvider);
     final recentFiles = ref.watch(recentFilesProvider);
+    final excelPath = ref.watch(excelFilePathProvider);
 
-    final activeFilePath = csvState.value?.filePath;
+    final activeFilePath = excelPath ?? csvState.value?.filePath;
     final activeFile = activeFilePath?.split(RegExp(r'[/\\]')).last;
 
     return Container(
