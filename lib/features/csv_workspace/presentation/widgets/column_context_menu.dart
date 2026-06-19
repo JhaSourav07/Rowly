@@ -20,9 +20,20 @@ Future<void> showColumnContextMenu({
   final physicalIndex = visibleOrderIndex < layoutState.visibleOrder.length
       ? layoutState.visibleOrder[visibleOrderIndex]
       : visibleOrderIndex;
+
+  String getColumnLetter(int index) {
+    String letter = '';
+    int temp = index;
+    while (temp >= 0) {
+      letter = String.fromCharCode((temp % 26) + 65) + letter;
+      temp = (temp ~/ 26) - 1;
+    }
+    return letter;
+  }
+
   final originalHeader = physicalIndex < metadata.headers.length
       ? metadata.headers[physicalIndex]
-      : 'Column $physicalIndex';
+      : 'Column ${getColumnLetter(visibleOrderIndex)}';
   final displayName = layoutState.displayName(originalHeader, physicalIndex);
   final isFrozen = layoutState.frozenColumnCount > visibleOrderIndex;
 

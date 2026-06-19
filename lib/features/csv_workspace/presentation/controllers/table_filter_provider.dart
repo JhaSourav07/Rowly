@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'csv_loader_provider.dart';
 import 'row_operations_provider.dart';
+import 'table_editing_provider.dart';
 
 part 'table_filter_provider.g.dart';
 
@@ -79,7 +80,8 @@ class TableFilter extends _$TableFilter {
     // Indices here are 0-based data-row indices (0 = first data row, which
     // lives at rowByteOffsets[1] in the file).
     final dataRowCount = (metadata.totalRows - 1).clamp(0, metadata.totalRows);
-    final indices = List<int>.generate(dataRowCount, (i) => i);
+    final int initialRowCount = dataRowCount > 100000 ? dataRowCount : 100000;
+    final indices = List<int>.generate(initialRowCount, (i) => i);
     return TableFilterState(
       searchQuery: '',
       sortColumnIndex: null,
@@ -141,11 +143,41 @@ class TableFilter extends _$TableFilter {
       isSortAscending: state.isSortAscending,
     );
 
-    state = state.copyWith(visibleRowIndices: updatedIndices);
+    final dataRowCount = (metadata.totalRows - 1).clamp(0, metadata.totalRows);
+    final mutations = ref.read(tableEditingProvider);
+
+    List<int> finalIndices = [...updatedIndices];
+
+    if (state.searchQuery.isEmpty) {
+      final int targetCount = dataRowCount > 100000 ? dataRowCount : 100000;
+      if (targetCount > dataRowCount) {
+        finalIndices.addAll(List.generate(targetCount - dataRowCount, (i) => dataRowCount + i));
+      }
+    } else {
+      final query = state.searchQuery.toLowerCase();
+      // Group mutations by virtual row index
+      final Map<int, List<String>> virtualRowMutations = {};
+      for (final entry in mutations.entries) {
+        final pos = entry.key;
+        if (pos.rowIndex >= dataRowCount) {
+          virtualRowMutations.putIfAbsent(pos.rowIndex, () => []).add(entry.value);
+        }
+      }
+
+      for (final rowIndex in virtualRowMutations.keys) {
+        final cellValues = virtualRowMutations[rowIndex]!;
+        final rowText = cellValues.join(' ');
+        if (rowText.toLowerCase().contains(query)) {
+          finalIndices.add(rowIndex);
+        }
+      }
+    }
+
+    state = state.copyWith(visibleRowIndices: finalIndices);
 
     // Re-seed the row layout provider so it matches the new filtered row count.
     // Without this, the grid's visibleOrder indices go stale and cause
     // out-of-bounds access (and visual row repetition/crashes).
-    ref.read(rowOperationsProvider.notifier).initialize(updatedIndices.length);
+    ref.read(rowOperationsProvider.notifier).initialize(finalIndices.length);
   }
 }

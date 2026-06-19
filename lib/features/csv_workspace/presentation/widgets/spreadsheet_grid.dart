@@ -43,8 +43,9 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
 
     // Initialize global column widths, column layout state, and row layout in the providers
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(columnWidthsProvider.notifier).initialize(widget.metadata.headers.length);
-      ref.read(columnOperationsProvider.notifier).initialize(widget.metadata.headers.length);
+      final int initialColCount = widget.metadata.headers.length > 1000 ? widget.metadata.headers.length : 1000;
+      ref.read(columnWidthsProvider.notifier).initialize(initialColCount);
+      ref.read(columnOperationsProvider.notifier).initialize(initialColCount);
       // Seed row layout from current filter state
       final totalRows = ref.read(tableFilterProvider).visibleRowIndices.length;
       ref.read(rowOperationsProvider.notifier).initialize(totalRows);
@@ -56,8 +57,9 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.metadata.filePath != widget.metadata.filePath) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(columnWidthsProvider.notifier).initialize(widget.metadata.headers.length);
-        ref.read(columnOperationsProvider.notifier).initialize(widget.metadata.headers.length);
+        final int initialColCount = widget.metadata.headers.length > 1000 ? widget.metadata.headers.length : 1000;
+        ref.read(columnWidthsProvider.notifier).initialize(initialColCount);
+        ref.read(columnOperationsProvider.notifier).initialize(initialColCount);
         final totalRows = ref.read(tableFilterProvider).visibleRowIndices.length;
         ref.read(rowOperationsProvider.notifier).initialize(totalRows);
       });
@@ -152,9 +154,11 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
       });
     }
 
+    final int initialColCount = widget.metadata.headers.length > 1000 ? widget.metadata.headers.length : 1000;
+
     // Use visibleOrder length so hidden/deleted columns are excluded from width
     final visibleCount = layoutState.visibleOrder.isEmpty
-        ? widget.metadata.headers.length
+        ? initialColCount
         : layoutState.visibleOrder.length;
 
     final double totalColumnsWidth = visibleCount == 0
@@ -163,107 +167,110 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
             .reduce((a, b) => a + b);
     final double totalWidth = 50.0 + totalColumnsWidth;
 
-    return Focus(
-      focusNode: _gridFocusNode,
-      autofocus: true,
-      onKeyEvent: (node, event) {
-        // If inline editing is active, do not navigate selected cell coordinate
-        final inlineEditing = ref.read(inlineEditingCellProvider);
-        if (inlineEditing != null) {
-          return KeyEventResult.ignored;
-        }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double viewportWidth = constraints.maxWidth;
 
-        if (event is! KeyUpEvent) {
-          final selectedCell = ref.read(selectedCellProvider);
-          if (selectedCell != null) {
-            final filter = ref.read(tableFilterProvider);
-            final headers = widget.metadata.headers;
-            final currentVisualIndex = filter.visibleRowIndices.indexOf(selectedCell.rowIndex);
+        return Focus(
+          focusNode: _gridFocusNode,
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            // If inline editing is active, do not navigate selected cell coordinate
+            final inlineEditing = ref.read(inlineEditingCellProvider);
+            if (inlineEditing != null) {
+              return KeyEventResult.ignored;
+            }
 
-            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              if (currentVisualIndex != -1 && currentVisualIndex < filter.visibleRowIndices.length - 1) {
-                final newPhysicalRow = filter.visibleRowIndices[currentVisualIndex + 1];
-                ref.read(selectedCellProvider.notifier).select(
-                  CsvCellPosition(rowIndex: newPhysicalRow, columnIndex: selectedCell.columnIndex),
-                );
-                _scrollToSelectedCell(currentVisualIndex + 2); // +2 because list view index 0 is headers row!
-                return KeyEventResult.handled;
-              }
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              if (currentVisualIndex > 0) {
-                final newPhysicalRow = filter.visibleRowIndices[currentVisualIndex - 1];
-                ref.read(selectedCellProvider.notifier).select(
-                  CsvCellPosition(rowIndex: newPhysicalRow, columnIndex: selectedCell.columnIndex),
-                );
-                _scrollToSelectedCell(currentVisualIndex); // visualIndex - 1 + 1 = visualIndex!
-                return KeyEventResult.handled;
-              }
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-              if (selectedCell.columnIndex > 0) {
-                ref.read(selectedCellProvider.notifier).select(
-                  CsvCellPosition(rowIndex: selectedCell.rowIndex, columnIndex: selectedCell.columnIndex - 1),
-                );
-                _scrollToSelectedColumn(selectedCell.columnIndex - 1);
-                return KeyEventResult.handled;
-              }
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-              final maxCol = layoutState.visibleOrder.isEmpty
-                  ? headers.length - 1
-                  : layoutState.visibleOrder.length - 1;
-              if (selectedCell.columnIndex < maxCol) {
-                ref.read(selectedCellProvider.notifier).select(
-                  CsvCellPosition(rowIndex: selectedCell.rowIndex, columnIndex: selectedCell.columnIndex + 1),
-                );
-                _scrollToSelectedColumn(selectedCell.columnIndex + 1);
-                return KeyEventResult.handled;
+            if (event is! KeyUpEvent) {
+              final selectedCell = ref.read(selectedCellProvider);
+              if (selectedCell != null) {
+                final filter = ref.read(tableFilterProvider);
+                final currentVisualIndex = filter.visibleRowIndices.indexOf(selectedCell.rowIndex);
+
+                if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  if (currentVisualIndex != -1 && currentVisualIndex < filter.visibleRowIndices.length - 1) {
+                    final newPhysicalRow = filter.visibleRowIndices[currentVisualIndex + 1];
+                    ref.read(selectedCellProvider.notifier).select(
+                      CsvCellPosition(rowIndex: newPhysicalRow, columnIndex: selectedCell.columnIndex),
+                    );
+                    _scrollToSelectedCell(currentVisualIndex + 2); // +2 because list view index 0 is headers row!
+                    return KeyEventResult.handled;
+                  }
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  if (currentVisualIndex > 0) {
+                    final newPhysicalRow = filter.visibleRowIndices[currentVisualIndex - 1];
+                    ref.read(selectedCellProvider.notifier).select(
+                      CsvCellPosition(rowIndex: newPhysicalRow, columnIndex: selectedCell.columnIndex),
+                    );
+                    _scrollToSelectedCell(currentVisualIndex); // visualIndex - 1 + 1 = visualIndex!
+                    return KeyEventResult.handled;
+                  }
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  if (selectedCell.columnIndex > 0) {
+                    ref.read(selectedCellProvider.notifier).select(
+                      CsvCellPosition(rowIndex: selectedCell.rowIndex, columnIndex: selectedCell.columnIndex - 1),
+                    );
+                    _scrollToSelectedColumn(selectedCell.columnIndex - 1);
+                    return KeyEventResult.handled;
+                  }
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  final maxCol = visibleCount - 1;
+                  if (selectedCell.columnIndex < maxCol) {
+                    ref.read(selectedCellProvider.notifier).select(
+                      CsvCellPosition(rowIndex: selectedCell.rowIndex, columnIndex: selectedCell.columnIndex + 1),
+                    );
+                    _scrollToSelectedColumn(selectedCell.columnIndex + 1);
+                    return KeyEventResult.handled;
+                  }
+                }
               }
             }
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Column(
-        children: [
-          // Horizontal scroll container that holds both the letter headers and the virtualized row builder
-          Expanded(
-            child: SingleChildScrollView(
-              controller: _horizontalScrollController,
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: totalWidth,
-                child: Column(
-                  children: [
-                    // 1. Column Letter Index Sticky Row (A, B, C...)
-                    ColumnHeaderRow(
-                      metadata: widget.metadata,
-                      horizontalScrollOffset: _horizontalScrollOffset,
+            return KeyEventResult.ignored;
+          },
+          child: Column(
+            children: [
+              // Horizontal scroll container that holds both the letter headers and the virtualized row builder
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: totalWidth,
+                    child: Column(
+                      children: [
+                        // 1. Column Letter Index Sticky Row (A, B, C...)
+                        ColumnHeaderRow(
+                          metadata: widget.metadata,
+                          horizontalScrollOffset: _horizontalScrollOffset,
+                          viewportWidth: viewportWidth,
+                        ),
+      
+                        // 2. High-Performance Virtualized Row Viewport
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            itemCount: rowLayoutState.visibleOrder.isEmpty
+                                ? filterState.visibleRowIndices.length + 1
+                                : rowLayoutState.visibleOrder.length + 1, // +1 for the headers row
+                            itemExtent: 32.0, // Fixed row height
+                            scrollCacheExtent: const ScrollCacheExtent.pixels(200),
+                            itemBuilder: (context, index) {
+                              return VirtualGridRow(
+                                rowIndex: index,
+                                columnCount: visibleCount,
+                                metadata: widget.metadata,
+                                horizontalScrollOffset: _horizontalScrollOffset,
+                                gridFocusNode: _gridFocusNode,
+                                viewportWidth: viewportWidth,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-  
-                    // 2. High-Performance Virtualized Row Viewport
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: rowLayoutState.visibleOrder.isEmpty
-                            ? filterState.visibleRowIndices.length + 1
-                            : rowLayoutState.visibleOrder.length + 1, // +1 for the headers row
-                        itemExtent: 32.0, // Fixed row height
-                        scrollCacheExtent: const ScrollCacheExtent.pixels(200),
-                        itemBuilder: (context, index) {
-                          return VirtualGridRow(
-                            rowIndex: index,
-                            columnCount: visibleCount,
-                            metadata: widget.metadata,
-                            horizontalScrollOffset: _horizontalScrollOffset,
-                            gridFocusNode: _gridFocusNode,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
   
           // 3. Premium Interactive Footer Bar
           Container(
@@ -416,5 +423,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
         ],
       ),
     );
-  }
+  },
+);
+}
 }

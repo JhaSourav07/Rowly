@@ -17,7 +17,7 @@ class FileAccessor {
     // dataRows = totalRows - 1 (header occupies slot 0 in rowByteOffsets)
     final int dataRows = metadata.totalRows - 1;
     if (rowIndex < 0 || rowIndex >= dataRows) {
-      throw RangeError('Target row index out of workspace operational layout bounds.');
+      return const [];
     }
 
     // Physical offset index: data row 0 → rowByteOffsets[1]

@@ -306,7 +306,7 @@ Future<void> _executeSaveAll(IsolateSaveAllRequest req) async {
     final headerCells = req.columnVisibleOrder.map((physIdx) {
       final original = physIdx < req.originalHeaders.length
           ? req.originalHeaders[physIdx]
-          : 'Column $physIdx';
+          : '';
       return _escapeCsvCell(req.renamedHeaders[physIdx] ?? original);
     }).join(',');
     sink.writeln(headerCells);

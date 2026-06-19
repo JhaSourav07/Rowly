@@ -84,6 +84,8 @@ class CsvLoader extends _$CsvLoader {
     state = const AsyncValue.loading();
     final repository = ref.read(csvRepositoryProvider);
 
+    final dataRowCount = (metadata.totalRows - 1).clamp(0, metadata.totalRows);
+
     // Resolve row layout filter indices → actual file row indices
     final rowFileIndices = rowFilterIndices.map((filterIdx) {
       if (filterIdx == -1) return -1;
@@ -91,14 +93,49 @@ class CsvLoader extends _$CsvLoader {
       return -1;
     }).toList();
 
+    // Trim trailing unmutated virtual rows
+    int lastRowToSave = -1;
+    for (int i = 0; i < rowFileIndices.length; i++) {
+      final fileRowIdx = rowFileIndices[i];
+      if (fileRowIdx == -1) {
+        lastRowToSave = i;
+      } else if (fileRowIdx < dataRowCount) {
+        lastRowToSave = i;
+      } else {
+        final hasMutation = mutations.keys.any((pos) => pos.rowIndex == fileRowIdx);
+        if (hasMutation) {
+          lastRowToSave = i;
+        }
+      }
+    }
+    final trimmedRowFileIndices = rowFileIndices.sublist(0, lastRowToSave + 1);
+
+    // Trim trailing columns that are not part of original headers and have no mutations/renames
+    int maxColToSave = metadata.headers.length - 1;
+    for (final pos in mutations.keys) {
+      if (pos.columnIndex > maxColToSave) {
+        maxColToSave = pos.columnIndex;
+      }
+    }
+    for (final physIdx in renamedHeaders.keys) {
+      final visIdx = columnVisibleOrder.indexOf(physIdx);
+      if (visIdx > maxColToSave) {
+        maxColToSave = visIdx;
+      }
+    }
+    final trimmedColumnVisibleOrder = columnVisibleOrder.sublist(
+      0,
+      (maxColToSave + 1).clamp(0, columnVisibleOrder.length),
+    );
+
     state = await AsyncValue.guard(() async {
       final updatedMetadata = await repository.saveAllChanges(
         metadata: metadata,
         mutations: mutations,
-        columnVisibleOrder: columnVisibleOrder,
+        columnVisibleOrder: trimmedColumnVisibleOrder,
         renamedHeaders: renamedHeaders,
         originalHeaders: metadata.headers,
-        rowFileIndices: rowFileIndices,
+        rowFileIndices: trimmedRowFileIndices,
       );
       ref.read(tableEditingProvider.notifier).clearAllMutations();
       return updatedMetadata;

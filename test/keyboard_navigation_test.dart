@@ -99,6 +99,61 @@ void main() {
       );
     });
 
+    testWidgets('Arrow key navigation allows selecting cells beyond initial CSV bounds (infinite rows/cols)', (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            csvLoaderProvider.overrideWith(() => MockCsvLoader(metadata)),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SpreadsheetGrid(metadata: metadata),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final element = tester.element(find.byType(SpreadsheetGrid));
+      final container = ProviderScope.containerOf(element);
+
+      // Select initial cell: Row 0, Column 2 (Rightmost original column)
+      const initialPosition = CsvCellPosition(rowIndex: 0, columnIndex: 2);
+      container.read(selectedCellProvider.notifier).select(initialPosition);
+      await tester.pump();
+
+      expect(container.read(selectedCellProvider), initialPosition);
+
+      // 1. Move Right -> Should select Row 0, Column 3 (Virtual Column)
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(
+        container.read(selectedCellProvider),
+        const CsvCellPosition(rowIndex: 0, columnIndex: 3),
+      );
+
+      // 2. Select cell: Row 1, Column 1 (Bottommost original row)
+      const bottomPosition = CsvCellPosition(rowIndex: 1, columnIndex: 1);
+      container.read(selectedCellProvider.notifier).select(bottomPosition);
+      await tester.pump();
+
+      // 3. Move Down -> Should select Row 2, Column 1 (Virtual Row)
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(
+        container.read(selectedCellProvider),
+        const CsvCellPosition(rowIndex: 2, columnIndex: 1),
+      );
+    });
+
     testWidgets('Arrow key navigation ignores input if inline editing is active', (tester) async {
       // Set desktop screen size to prevent footer overflow in test environment
       tester.view.physicalSize = const Size(1200, 800);

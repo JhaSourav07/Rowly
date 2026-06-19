@@ -11,11 +11,13 @@ import 'column_context_menu.dart';
 class ColumnHeaderRow extends ConsumerWidget {
   final CsvTableMetadata metadata;
   final ValueNotifier<double> horizontalScrollOffset;
+  final double viewportWidth;
 
   const ColumnHeaderRow({
     super.key,
     required this.metadata,
     required this.horizontalScrollOffset,
+    required this.viewportWidth,
   });
 
   String _getColumnLetter(int index) {
@@ -34,17 +36,19 @@ class ColumnHeaderRow extends ConsumerWidget {
     final columnWidths = ref.watch(columnWidthsProvider);
     final layoutState = ref.watch(columnOperationsProvider);
 
+    final int initialColCount = metadata.headers.length > 1000 ? metadata.headers.length : 1000;
+
     // If column operations provider hasn't been initialized yet, seed it.
     if (layoutState.visibleOrder.isEmpty && metadata.headers.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref
             .read(columnOperationsProvider.notifier)
-            .initialize(metadata.headers.length);
+            .initialize(initialColCount);
       });
     }
 
     final visibleOrder = layoutState.visibleOrder.isEmpty
-        ? List.generate(metadata.headers.length, (i) => i)
+        ? List.generate(initialColCount, (i) => i)
         : layoutState.visibleOrder;
 
     return Container(
@@ -60,138 +64,184 @@ class ColumnHeaderRow extends ConsumerWidget {
           // ── Letter columns with drag-to-resize and right-click menu ──────────
           Positioned.fill(
             left: 50.0,
-            child: Row(
-              children: List.generate(visibleOrder.length, (visIdx) {
-                final physicalIndex = visibleOrder[visIdx];
-                final originalHeader = physicalIndex < metadata.headers.length
-                    ? metadata.headers[physicalIndex]
-                    : 'Col $physicalIndex';
-                final headerLabel = layoutState.displayName(originalHeader, physicalIndex);
-                final letter = _getColumnLetter(visIdx);
+            child: ValueListenableBuilder<double>(
+              valueListenable: horizontalScrollOffset,
+              builder: (context, scrollOffset, child) {
+                int firstVisible = -1;
+                int lastVisible = -1;
+                double leftSpacerWidth = 0.0;
+                double rightSpacerWidth = 0.0;
 
-                final isColFocused = selectedCell?.columnIndex == visIdx;
-                final isFrozen = visIdx < layoutState.frozenColumnCount;
-                final double width = columnWidths[visIdx] ?? 120.0;
+                double currentOffset = 0.0;
+                for (int i = 0; i < visibleOrder.length; i++) {
+                  final double colWidth = columnWidths[i] ?? 120.0;
+                  final double colLeft = currentOffset;
+                  final double colRight = currentOffset + colWidth;
 
-                return SizedBox(
-                  width: width,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned.fill(
-                        child: Listener(
-                          // kSecondaryMouseButton == 2; fires on web AND desktop
-                          onPointerDown: (event) {
-                            if (event.buttons == 2) {
-                              showColumnContextMenu(
-                                context: context,
-                                ref: ref,
-                                metadata: metadata,
-                                visibleOrderIndex: visIdx,
-                                globalPosition: event.position,
-                              );
-                            }
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: isFrozen
-                                  ? AppColors.accent.withAlpha(18)
-                                  : Colors.transparent,
-                              border: Border(
-                                right: const BorderSide(
-                                    color: AppColors.borderSubtle, width: 0.5),
-                                bottom: BorderSide(
-                                  color: isColFocused
-                                      ? AppColors.successGreen
-                                      : Colors.transparent,
-                                  width: isColFocused ? 1.5 : 0.0,
+                  const double buffer = 150.0;
+                  final bool isVisible = colRight >= (scrollOffset - buffer) &&
+                      colLeft <= (scrollOffset + viewportWidth + buffer);
+
+                  if (isVisible) {
+                    if (firstVisible == -1) {
+                      firstVisible = i;
+                    }
+                    lastVisible = i;
+                  } else {
+                    if (firstVisible == -1) {
+                      leftSpacerWidth += colWidth;
+                    } else {
+                      rightSpacerWidth += colWidth;
+                    }
+                  }
+                  currentOffset += colWidth;
+                }
+
+                if (firstVisible == -1) {
+                  firstVisible = 0;
+                  lastVisible = 0;
+                  leftSpacerWidth = 0.0;
+                  rightSpacerWidth = currentOffset - (columnWidths[0] ?? 120.0);
+                }
+
+                return Row(
+                  children: [
+                    if (leftSpacerWidth > 0) SizedBox(width: leftSpacerWidth),
+                    ...List.generate(lastVisible - firstVisible + 1, (index) {
+                      final visIdx = firstVisible + index;
+                      final physicalIndex = visibleOrder[visIdx];
+                      final originalHeader = physicalIndex < metadata.headers.length
+                          ? metadata.headers[physicalIndex]
+                          : '';
+                      final headerLabel = layoutState.displayName(originalHeader, physicalIndex);
+                      final letter = _getColumnLetter(visIdx);
+
+                      final isColFocused = selectedCell?.columnIndex == visIdx;
+                      final isFrozen = visIdx < layoutState.frozenColumnCount;
+                      final double width = columnWidths[visIdx] ?? 120.0;
+
+                      return SizedBox(
+                        width: width,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: Listener(
+                                onPointerDown: (event) {
+                                  if (event.buttons == 2) {
+                                    showColumnContextMenu(
+                                      context: context,
+                                      ref: ref,
+                                      metadata: metadata,
+                                      visibleOrderIndex: visIdx,
+                                      globalPosition: event.position,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isFrozen
+                                        ? AppColors.accent.withAlpha(18)
+                                        : Colors.transparent,
+                                    border: Border(
+                                      right: const BorderSide(
+                                          color: AppColors.borderSubtle, width: 0.5),
+                                      bottom: BorderSide(
+                                        color: isColFocused
+                                            ? AppColors.successGreen
+                                            : Colors.transparent,
+                                        width: isColFocused ? 1.5 : 0.0,
+                                      ),
+                                    ),
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          letter,
+                                          style: TextStyle(
+                                            fontSize: 10.0,
+                                            fontWeight: isColFocused
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: isColFocused
+                                                ? AppColors.successGreen
+                                                : AppColors.textMuted,
+                                          ),
+                                        ),
+                                        if (headerLabel.isNotEmpty) ...[
+                                          const SizedBox(height: 1),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 3.0),
+                                            child: Text(
+                                              headerLabel,
+                                              style: TextStyle(
+                                                fontSize: 9.0,
+                                                color: isFrozen
+                                                    ? AppColors.accent
+                                                    : AppColors.textMuted,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  letter,
-                                  style: TextStyle(
-                                    fontSize: 10.0,
-                                    fontWeight: isColFocused
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: isColFocused
-                                        ? AppColors.successGreen
-                                        : AppColors.textMuted,
-                                  ),
+                            if (isFrozen &&
+                                visIdx == layoutState.frozenColumnCount - 1)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: 2,
+                                child: Container(
+                                  color: AppColors.accent.withAlpha(200),
                                 ),
-                                if (headerLabel.isNotEmpty) ...[
-                                  const SizedBox(height: 1),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 3.0),
-                                    child: Text(
-                                      headerLabel,
-                                      style: TextStyle(
-                                        fontSize: 9.0,
-                                        color: isFrozen
-                                            ? AppColors.accent
-                                            : AppColors.textMuted,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ],
+                              ),
+                            Positioned(
+                              right: -4.0,
+                              top: 0,
+                              bottom: 0,
+                              width: 8.0,
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.resizeLeftRight,
+                                child: GestureDetector(
+                                  onHorizontalDragUpdate: (details) {
+                                    ref
+                                        .read(columnWidthsProvider.notifier)
+                                        .resizeColumn(visIdx, details.delta.dx);
+                                  },
+                                  onDoubleTap: () {
+                                    final visibleRowIndices =
+                                        ref.read(tableFilterProvider).visibleRowIndices;
+                                    ref
+                                        .read(columnWidthsProvider.notifier)
+                                        .autoFitColumn(
+                                            visIdx, metadata, visibleRowIndices);
+                                  },
+                                  behavior: HitTestBehavior.translucent,
+                                  child: Container(color: Colors.transparent),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ),
-
-                      // Frozen indicator bar on the right edge of the last frozen column
-                      if (isFrozen &&
-                          visIdx == layoutState.frozenColumnCount - 1)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: 2,
-                          child: Container(
-                            color: AppColors.accent.withAlpha(200),
-                          ),
-                        ),
-
-                      // Drag-to-resize handle at the right edge
-                      Positioned(
-                        right: -4.0,
-                        top: 0,
-                        bottom: 0,
-                        width: 8.0,
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.resizeLeftRight,
-                          child: GestureDetector(
-                            onHorizontalDragUpdate: (details) {
-                              ref
-                                  .read(columnWidthsProvider.notifier)
-                                  .resizeColumn(visIdx, details.delta.dx);
-                            },
-                            onDoubleTap: () {
-                              final visibleRowIndices =
-                                  ref.read(tableFilterProvider).visibleRowIndices;
-                              ref
-                                  .read(columnWidthsProvider.notifier)
-                                  .autoFitColumn(
-                                      visIdx, metadata, visibleRowIndices);
-                            },
-                            behavior: HitTestBehavior.translucent,
-                            child: Container(color: Colors.transparent),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      );
+                    }),
+                    if (rightSpacerWidth > 0) SizedBox(width: rightSpacerWidth),
+                  ],
                 );
-              }),
+              },
             ),
           ),
 

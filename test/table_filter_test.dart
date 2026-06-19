@@ -18,9 +18,12 @@ void main() {
 
       final copied = state.copyWith(searchQuery: 'new_query');
       expect(copied.searchQuery, 'new_query');
-      expect(copied.sortColumnIndex, isNull); // Resets sorting
+      expect(copied.sortColumnIndex, 2);
       expect(copied.isSortAscending, isFalse);
       expect(copied.visibleRowIndices, [1, 3, 5]);
+
+      final clearedSort = state.copyWith(sortColumnIndex: null);
+      expect(clearedSort.sortColumnIndex, isNull);
     });
   });
 }
