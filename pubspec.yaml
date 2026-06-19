@@ -1,6 +1,6 @@
 name: rowly
 description: A production-grade, premium performance cross-platform CSV Viewer and Editor.
-version: 2.1.0+1
+version: 2.2.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
