@@ -32,7 +32,7 @@ class Sidebar extends ConsumerWidget {
 
     return Container(
       width: 240.0,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
           right: BorderSide(color: AppColors.borderSubtle, width: 1.0),
@@ -56,7 +56,7 @@ class Sidebar extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 4.0),
-                const Text(
+                Text(
                   'Fast. Lightweight. Powerful.',
                   style: TextStyle(
                     color: AppColors.textMuted,
@@ -85,13 +85,13 @@ class Sidebar extends ConsumerWidget {
                     border: Border.all(color: AppColors.borderSubtle),
                     borderRadius: BorderRadius.circular(6.0),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
                           Icon(Icons.folder_open_outlined, size: 16, color: AppColors.textPrimary),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             'Open File',
                             style: TextStyle(
@@ -132,8 +132,8 @@ class Sidebar extends ConsumerWidget {
                       },
                     )
                   else
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                       child: Text(
                         'No active file open',
                         style: TextStyle(
@@ -149,8 +149,8 @@ class Sidebar extends ConsumerWidget {
                   // RECENT Section (Historically opened files)
                   _buildSectionHeader('RECENT'),
                   if (recentFiles.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                       child: Text(
                         'No recent files loaded',
                         style: TextStyle(
@@ -212,7 +212,7 @@ class Sidebar extends ConsumerWidget {
             ),
           ),
 
-          const Divider(color: AppColors.borderSubtle, height: 1),
+          Divider(color: AppColors.borderSubtle, height: 1),
 
           // Bottom Settings and Version Bar
           Padding(
@@ -231,13 +231,13 @@ class Sidebar extends ConsumerWidget {
                     Container(
                       width: 6,
                       height: 6,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.successGreen,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Rowly v1.0.0',
                       style: TextStyle(
                         color: AppColors.textMuted,
@@ -259,7 +259,7 @@ class Sidebar extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textMuted,
           fontSize: 10.0,
           fontWeight: FontWeight.bold,
@@ -318,7 +318,7 @@ class Sidebar extends ConsumerWidget {
                       shape: BoxShape.circle,
                       color: Colors.transparent,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.close,
                       size: 12,
                       color: AppColors.textMuted,
@@ -354,7 +354,7 @@ class Sidebar extends ConsumerWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13.0,
                     fontWeight: FontWeight.w400,
@@ -372,7 +372,7 @@ class Sidebar extends ConsumerWidget {
                   ),
                   child: Text(
                     trailing,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 9.0,
                       fontFamily: 'monospace',

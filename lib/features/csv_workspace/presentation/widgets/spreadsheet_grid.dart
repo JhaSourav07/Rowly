@@ -275,7 +275,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
           // 3. Premium Interactive Footer Bar
           Container(
             height: 32.0,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.surface,
               border: Border(
                 top: BorderSide(color: AppColors.borderSubtle, width: 1.0),
@@ -288,25 +288,25 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                 // Left: Ready, Parse Performance, File size
                 Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, size: 14, color: AppColors.successGreen),
+                    Icon(Icons.check_circle_outline, size: 14, color: AppColors.successGreen),
                     const SizedBox(width: 6),
-                    const Text(
+                    Text(
                       'Ready',
                       style: TextStyle(color: AppColors.successGreen, fontSize: 11.0, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 12),
-                    const VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
+                    VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
                     const SizedBox(width: 12),
-                    const Text(
+                    Text(
                       'Parsed in 0.45s',
                       style: TextStyle(color: AppColors.textMuted, fontSize: 11.0),
                     ),
                     const SizedBox(width: 12),
-                    const VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
+                    VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
                     const SizedBox(width: 12),
                     Text(
                       'File size: ${(widget.metadata.fileSizeInBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11.0),
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11.0),
                     ),
                   ],
                 ),
@@ -329,10 +329,10 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(3.0),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
                             Icon(Icons.grid_on_outlined, size: 10, color: AppColors.successGreen),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Text(
                               'Table View',
                               style: TextStyle(color: AppColors.textPrimary, fontSize: 10.0, fontWeight: FontWeight.bold),
@@ -344,7 +344,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         alignment: Alignment.center,
-                        child: const Text(
+                        child: Text(
                           'Stats',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 10.0),
                         ),
@@ -360,7 +360,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                     children: [
                       // First page
                       IconButton(
-                        icon: const Icon(Icons.first_page, size: 14, color: AppColors.textSecondary),
+                        icon: Icon(Icons.first_page, size: 14, color: AppColors.textSecondary),
                         onPressed: displayPage > 1 ? () => _navigateToPage(1) : null,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -369,7 +369,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                       const SizedBox(width: 4),
                       // Prev page
                       IconButton(
-                        icon: const Icon(Icons.chevron_left, size: 14, color: AppColors.textSecondary),
+                        icon: Icon(Icons.chevron_left, size: 14, color: AppColors.textSecondary),
                         onPressed: displayPage > 1 ? () => _navigateToPage(displayPage - 1) : null,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -388,18 +388,18 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                         ),
                         child: Text(
                           displayPage.toString(),
-                          style: const TextStyle(fontSize: 10.0, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 10.0, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'of $_totalPages',
-                        style: const TextStyle(fontSize: 11.0, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 11.0, color: AppColors.textMuted),
                       ),
                       const SizedBox(width: 8),
                       // Next page
                       IconButton(
-                        icon: const Icon(Icons.chevron_right, size: 14, color: AppColors.textSecondary),
+                        icon: Icon(Icons.chevron_right, size: 14, color: AppColors.textSecondary),
                         onPressed: displayPage < _totalPages ? () => _navigateToPage(displayPage + 1) : null,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -408,7 +408,7 @@ class _SpreadsheetGridState extends ConsumerState<SpreadsheetGrid> {
                       const SizedBox(width: 4),
                       // Last page
                       IconButton(
-                        icon: const Icon(Icons.last_page, size: 14, color: AppColors.textSecondary),
+                        icon: Icon(Icons.last_page, size: 14, color: AppColors.textSecondary),
                         onPressed: displayPage < _totalPages ? () => _navigateToPage(_totalPages) : null,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),

@@ -7,6 +7,8 @@ import 'app/theme/typography.dart';
 import 'features/csv_workspace/presentation/controllers/csv_loader_provider.dart';
 import 'features/csv_workspace/presentation/widgets/widgets.dart';
 
+import 'features/csv_workspace/presentation/controllers/theme_provider.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // Suppress the browser's native right-click menu so Flutter Web
@@ -17,15 +19,29 @@ void main() {
   runApp(const ProviderScope(child: RowlyApp()));
 }
 
-class RowlyApp extends StatelessWidget {
+class RowlyApp extends ConsumerWidget {
   const RowlyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(appThemeModeProvider);
+    AppColors.isDark = themeMode == ThemeMode.dark;
+
     return MaterialApp(
       title: 'Rowly',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
+      themeMode: themeMode,
+      theme: ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: AppColors.background,
+        cardColor: AppColors.surface,
+        dividerColor: AppColors.borderSubtle,
+        textTheme: const TextTheme(
+          bodyLarge: AppTypography.monoData,
+          bodyMedium: AppTypography.uiCommand,
+          titleMedium: AppTypography.uiHeader,
+        ),
+      ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: AppColors.background,
@@ -69,7 +85,7 @@ class MainWorkspaceScaffold extends ConsumerWidget {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.table_view_outlined,
                                   size: 64,
                                   color: AppColors.textMuted,
@@ -101,7 +117,7 @@ class MainWorkspaceScaffold extends ConsumerWidget {
                         }
                         return SpreadsheetGrid(metadata: metadata);
                       },
-                      loading: () => const Center(
+                      loading: () => Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),

@@ -26,12 +26,12 @@ void main() {
       
       // Row 1: Data 1
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value = TextCellValue('Alice');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 1)).value = IntCellValue(25);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 1)).value = const IntCellValue(25);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1)).value = TextCellValue('USA');
 
       // Row 2: Data 2
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 2)).value = TextCellValue('Bob');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 2)).value = IntCellValue(30);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 2)).value = const IntCellValue(30);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 2)).value = TextCellValue('Canada');
 
       final bytes = excel.encode();

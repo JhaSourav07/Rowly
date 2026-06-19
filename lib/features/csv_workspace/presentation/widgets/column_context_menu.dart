@@ -105,7 +105,7 @@ class _ColumnContextMenuDialogState
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(color: AppColors.borderSubtle, width: 1),
                   ),
@@ -113,7 +113,7 @@ class _ColumnContextMenuDialogState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Column Operations',
                       style: TextStyle(
                         color: AppColors.textPrimary,
@@ -125,13 +125,13 @@ class _ColumnContextMenuDialogState
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(Icons.table_chart_outlined,
+                        Icon(Icons.table_chart_outlined,
                             size: 11, color: AppColors.textMuted),
                         const SizedBox(width: 5),
                         Flexible(
                           child: Text(
                             widget.displayName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.successGreen,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -189,7 +189,7 @@ class _ColumnContextMenuDialogState
                         Navigator.of(context).pop();
                       },
                     ),
-                    const Divider(
+                    Divider(
                         color: AppColors.borderSubtle, height: 1, indent: 16, endIndent: 16),
                     const SizedBox(height: 4),
                     _buildMenuItem(
@@ -215,7 +215,7 @@ class _ColumnContextMenuDialogState
                         Navigator.of(context).pop();
                       },
                     ),
-                    const Divider(
+                    Divider(
                         color: AppColors.borderSubtle, height: 1, indent: 16, endIndent: 16),
                     const SizedBox(height: 4),
                     _buildMenuItem(
@@ -238,7 +238,7 @@ class _ColumnContextMenuDialogState
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
-                      side: const BorderSide(
+                      side: BorderSide(
                           color: AppColors.borderSubtle, width: 0.8),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(
@@ -304,29 +304,29 @@ class _ColumnContextMenuDialogState
       builder: (innerCtx) => AlertDialog(
         backgroundColor: AppColors.surfaceElevated,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        title: const Text('Rename Column',
+        title: Text('Rename Column',
             style:
                 TextStyle(color: AppColors.textPrimary, fontSize: 14)),
         content: TextField(
           controller: controller,
           autofocus: true,
           style:
-              const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              TextStyle(color: AppColors.textPrimary, fontSize: 13),
           cursorColor: AppColors.successGreen,
           decoration: InputDecoration(
             hintText: 'Enter new column name…',
             hintStyle:
-                const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                TextStyle(color: AppColors.textMuted, fontSize: 12),
             filled: true,
             fillColor: AppColors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide:
-                  const BorderSide(color: AppColors.borderSubtle),
+                  BorderSide(color: AppColors.borderSubtle),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(
+              borderSide: BorderSide(
                   color: AppColors.successGreen, width: 1.5),
             ),
           ),
@@ -335,7 +335,7 @@ class _ColumnContextMenuDialogState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(innerCtx).pop(),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           ),
           ElevatedButton(
@@ -371,11 +371,11 @@ class _ColumnContextMenuDialogState
       builder: (innerCtx) => AlertDialog(
         backgroundColor: AppColors.surfaceElevated,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.warning_amber_rounded,
                 color: AppColors.error, size: 18),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text('Delete Column',
                 style: TextStyle(
                     color: AppColors.textPrimary, fontSize: 14)),
@@ -383,13 +383,13 @@ class _ColumnContextMenuDialogState
         ),
         content: Text(
           'Remove "${widget.displayName}" from the view? This cannot be undone.',
-          style: const TextStyle(
+          style: TextStyle(
               color: AppColors.textSecondary, fontSize: 12),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(innerCtx).pop(false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style:
                     TextStyle(color: AppColors.textMuted, fontSize: 12)),
           ),

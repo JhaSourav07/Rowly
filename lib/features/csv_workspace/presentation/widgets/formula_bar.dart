@@ -48,7 +48,7 @@ class FormulaBar extends ConsumerWidget {
 
     return Container(
       height: height,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
           bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
@@ -71,7 +71,7 @@ class FormulaBar extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
             child: Text(
               cellCoordinate.isEmpty ? '--' : cellCoordinate,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.successGreen,
                 fontSize: 11.0,
                 fontWeight: FontWeight.bold,
@@ -81,19 +81,19 @@ class FormulaBar extends ConsumerWidget {
           const SizedBox(width: 8),
           Padding(
             padding: EdgeInsets.only(top: isExpanded ? 6.0 : 0.0),
-            child: const Icon(Icons.functions, size: 14, color: AppColors.textMuted),
+            child: Icon(Icons.functions, size: 14, color: AppColors.textMuted),
           ),
           const SizedBox(width: 8),
           SizedBox(
             height: isExpanded ? 60.0 : 20.0,
-            child: const VerticalDivider(color: AppColors.borderSubtle, width: 1),
+            child: VerticalDivider(color: AppColors.borderSubtle, width: 1),
           ),
           const SizedBox(width: 8),
 
           // Formula input field
           Expanded(
             child: selectedCell == null
-                ? const Align(
+                ? Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Select a cell to view or edit formulas/values',
@@ -110,7 +110,7 @@ class FormulaBar extends ConsumerWidget {
           const SizedBox(width: 8),
           SizedBox(
             height: isExpanded ? 60.0 : 20.0,
-            child: const VerticalDivider(color: AppColors.borderSubtle, width: 1),
+            child: VerticalDivider(color: AppColors.borderSubtle, width: 1),
           ),
           const SizedBox(width: 8),
           Padding(
@@ -196,10 +196,10 @@ class _FormulaBarInputState extends ConsumerState<FormulaBarInput> {
       controller: _controller,
       enabled: editMode,
       maxLines: widget.isExpanded ? null : 1,
-      style: const TextStyle(fontSize: 12.0, color: AppColors.textPrimary, fontFamily: 'monospace'),
+      style: TextStyle(fontSize: 12.0, color: AppColors.textPrimary, fontFamily: 'monospace'),
       decoration: InputDecoration(
         hintText: editMode ? 'Enter value...' : 'Read Only (Select edit mode to edit)',
-        hintStyle: const TextStyle(fontSize: 12.0, color: AppColors.textMuted),
+        hintStyle: TextStyle(fontSize: 12.0, color: AppColors.textMuted),
         border: InputBorder.none,
         isDense: true,
         contentPadding: widget.isExpanded ? const EdgeInsets.symmetric(vertical: 4.0) : const EdgeInsets.symmetric(vertical: 6.0),

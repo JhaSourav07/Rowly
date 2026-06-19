@@ -56,7 +56,7 @@ class _InlineCellTextFieldState extends ConsumerState<InlineCellTextField> {
         controller: _controller,
         focusNode: _focusNode,
         autofocus: true,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13.0,
           color: AppColors.textPrimary,
           fontWeight: FontWeight.normal,

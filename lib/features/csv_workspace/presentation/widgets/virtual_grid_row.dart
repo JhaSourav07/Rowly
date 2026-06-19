@@ -126,7 +126,7 @@ class VirtualGridRow extends ConsumerWidget {
 
     return Container(
       height: 32.0,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: AppColors.borderSubtle, width: 0.5),
         ),
@@ -227,13 +227,13 @@ class VirtualGridRow extends ConsumerWidget {
                               border: isSelectedCell
                                   ? Border.all(color: AppColors.successGreen, width: 1.5)
                                   : Border(
-                                      right: const BorderSide(
+                                      right: BorderSide(
                                           color: AppColors.borderSubtle, width: 0.5),
-                                      bottom: const BorderSide(
+                                      bottom: BorderSide(
                                           color: AppColors.borderSubtle, width: 0.5),
                                       left: isFrozen &&
                                               visIdx == layoutState.frozenColumnCount - 1
-                                          ? const BorderSide(
+                                          ? BorderSide(
                                               color: AppColors.accent, width: 1.5)
                                           : BorderSide.none,
                                     ),
@@ -277,7 +277,7 @@ class VirtualGridRow extends ConsumerWidget {
                                             borderRadius: BorderRadius.circular(2),
                                           ),
                                         ),
-                                        error: (_, __) => const Icon(
+                                        error: (_, __) => Icon(
                                             Icons.error_outline,
                                             size: 12,
                                             color: AppColors.error),
@@ -321,7 +321,7 @@ class VirtualGridRow extends ConsumerWidget {
                       child: Container(
                         height: 32.0,
                         alignment: Alignment.center,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.surface,
                           border: Border(
                             right: BorderSide(

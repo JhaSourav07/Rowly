@@ -23,7 +23,7 @@ void main() {
     });
 
     test('saveAllChanges does not write "Column X" placeholders for virtual columns', () async {
-      final repository = const CsvRepositoryImpl(
+      const repository = CsvRepositoryImpl(
         worker: CsvIsolateWorker(),
         accessor: FileAccessor(),
       );

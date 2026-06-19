@@ -39,7 +39,7 @@ class ColumnHeaderRow extends ConsumerWidget {
         color: AppColors.successGreen,
       );
     }
-    return const Icon(Icons.filter_alt_outlined, size: 9, color: AppColors.textMuted);
+    return Icon(Icons.filter_alt_outlined, size: 9, color: AppColors.textMuted);
   }
 
   @override
@@ -65,7 +65,7 @@ class ColumnHeaderRow extends ConsumerWidget {
 
     return Container(
       height: 28.0,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
           bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
@@ -163,7 +163,7 @@ class ColumnHeaderRow extends ConsumerWidget {
                                           ? AppColors.accent.withAlpha(18)
                                           : Colors.transparent,
                                       border: Border(
-                                        right: const BorderSide(
+                                        right: BorderSide(
                                             color: AppColors.borderSubtle, width: 0.5),
                                         bottom: BorderSide(
                                           color: isColFocused
@@ -283,7 +283,7 @@ class ColumnHeaderRow extends ConsumerWidget {
                 return Transform.translate(
                   offset: Offset(offset, 0.0),
                   child: Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.surface,
                       border: Border(
                         right:

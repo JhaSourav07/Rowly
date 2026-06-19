@@ -49,12 +49,12 @@ class _ToolbarSearchFieldState extends ConsumerState<ToolbarSearchField> {
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 14, color: AppColors.textMuted),
+          Icon(Icons.search, size: 14, color: AppColors.textMuted),
           const SizedBox(width: 6),
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(fontSize: 11.0, color: AppColors.textPrimary),
+              style: TextStyle(fontSize: 11.0, color: AppColors.textPrimary),
               decoration: InputDecoration(
                 hintText: widget.isCompact ? 'Search...' : 'Search (Ctrl + F)',
                 hintStyle: TextStyle(fontSize: 11.0, color: AppColors.textMuted.withAlpha(180)),
@@ -73,7 +73,7 @@ class _ToolbarSearchFieldState extends ConsumerState<ToolbarSearchField> {
                 _controller.clear();
                 ref.read(tableFilterProvider.notifier).setSearchQuery('');
               },
-              child: const Icon(Icons.clear, size: 12, color: AppColors.textMuted),
+              child: Icon(Icons.clear, size: 12, color: AppColors.textMuted),
             ),
         ],
       ),

@@ -7,6 +7,7 @@ import '../controllers/csv_loader_provider.dart';
 import '../controllers/row_operations_provider.dart';
 import '../controllers/table_editing_provider.dart';
 import '../controllers/table_filter_provider.dart';
+import '../controllers/theme_provider.dart';
 import 'formula_bar.dart';
 import 'toolbar_search_field.dart';
 
@@ -30,6 +31,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
     final rowLayout = ref.watch(rowOperationsProvider);
     final filterState = ref.watch(tableFilterProvider);
     final excelPath = ref.watch(excelFilePathProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
 
     // Show Save Changes whenever there are cell edits OR structural ops
     final hasAnyChanges = hasMutations || colLayout.hasChanges || rowLayout.hasChanges;
@@ -46,7 +48,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
 
         return Container(
           height: totalHeight,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.surface,
             border: Border(
               bottom: BorderSide(color: AppColors.borderSubtle, width: 1.0),
@@ -57,7 +59,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
               // ================= ROW 1: TABS & GLOBAL SEARCH =================
               Container(
                 height: 40.0,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(color: AppColors.borderMuted, width: 1.0),
                   ),
@@ -82,9 +84,9 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                             right: 0,
                             child: Container(
                               height: 2.0,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: AppColors.successGreen,
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(6.0)),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(6.0)),
                               ),
                             ),
                           ),
@@ -92,7 +94,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                             padding: const EdgeInsets.fromLTRB(12.0, 2.0, 12.0, 0),
                             child: Row(
                               children: [
-                                const Icon(Icons.insert_drive_file_outlined, size: 14, color: AppColors.successGreen),
+                                Icon(Icons.insert_drive_file_outlined, size: 14, color: AppColors.successGreen),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -110,7 +112,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                                   onTap: () {
                                     ref.read(csvLoaderProvider.notifier).closeFile();
                                   },
-                                  child: const Icon(Icons.close, size: 12, color: AppColors.textMuted),
+                                  child: Icon(Icons.close, size: 12, color: AppColors.textMuted),
                                 ),
                               ],
                             ),
@@ -122,7 +124,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                     const SizedBox(width: 8.0),
                     // Plus tab button
                     IconButton(
-                      icon: const Icon(Icons.add, size: 16, color: AppColors.textMuted),
+                      icon: Icon(Icons.add, size: 16, color: AppColors.textMuted),
                       onPressed: () {},
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -133,7 +135,21 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
 
                     // Utility Icons
                     IconButton(
-                      icon: const Icon(Icons.light_mode_outlined, size: 16, color: AppColors.textMuted),
+                      icon: Icon(
+                        themeMode == ThemeMode.dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                      onPressed: () {
+                        ref.read(appThemeModeProvider.notifier).toggle();
+                      },
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 12.0),
+                    IconButton(
+                      icon: Icon(Icons.settings_outlined, size: 16, color: AppColors.textMuted),
                       onPressed: () {},
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -141,15 +157,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                     ),
                     const SizedBox(width: 12.0),
                     IconButton(
-                      icon: const Icon(Icons.settings_outlined, size: 16, color: AppColors.textMuted),
-                      onPressed: () {},
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 12.0),
-                    IconButton(
-                      icon: const Icon(Icons.help_outline, size: 16, color: AppColors.textMuted),
+                      icon: Icon(Icons.help_outline, size: 16, color: AppColors.textMuted),
                       onPressed: () {},
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -158,7 +166,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                     if (!isCompact) ...[
                       const SizedBox(width: 12.0),
                       IconButton(
-                        icon: const Icon(Icons.fullscreen_outlined, size: 16, color: AppColors.textMuted),
+                        icon: Icon(Icons.fullscreen_outlined, size: 16, color: AppColors.textMuted),
                         onPressed: () {},
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
@@ -191,7 +199,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                     _buildActionButton(context, Icons.ac_unit_outlined, 'Freeze', isCompact),
                     const SizedBox(width: 12),
 
-                    const VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
+                    VerticalDivider(color: AppColors.borderSubtle, width: 1, indent: 8, endIndent: 8),
                     const SizedBox(width: 12),
 
                     // Search in file search field
@@ -205,7 +213,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                         isCompact
                             ? '${metadata.totalRows.toString()} R'
                             : '${metadata.totalRows.toString()} rows • ${metadata.headers.length.toString()} columns',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11.0, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 11.0, fontWeight: FontWeight.w400),
                       ),
                     const SizedBox(width: 12),
 
@@ -272,7 +280,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                             filterToFileRow: filterState.visibleRowIndices,
                           );
                         },
-                        icon: const Icon(Icons.save_outlined,
+                        icon: Icon(Icons.save_outlined,
                             size: 12, color: AppColors.textPrimary),
                         label: Text(
                           isCompact ? 'Save' : 'Save Changes',
@@ -292,7 +300,7 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
 
                     // Vertical dots menu
                     IconButton(
-                      icon: const Icon(Icons.more_vert, size: 16, color: AppColors.textMuted),
+                      icon: Icon(Icons.more_vert, size: 16, color: AppColors.textMuted),
                       onPressed: () {},
                       visualDensity: VisualDensity.compact,
                     ),
@@ -343,14 +351,14 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                 const SizedBox(width: 6),
                 Text(
                   text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11.0,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down, size: 10, color: AppColors.textMuted),
+                Icon(Icons.keyboard_arrow_down, size: 10, color: AppColors.textMuted),
               ],
             ],
           ),
