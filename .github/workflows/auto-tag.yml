@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      bumped: ${{ steps.publish.outputs.bumped }}
+      tag_name: ${{ steps.next.outputs.tag }}
 
     steps:
       # ── 1. Full history checkout ──────────────────────────────────────────
@@ -176,6 +179,7 @@ jobs:
           steps.bot_check.outputs.skip == 'false' &&
           steps.bump.outputs.level != 'none' &&
           steps.tag_check.outputs.exists == 'false'
+        id: publish
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -185,4 +189,125 @@ jobs:
               -m "Release ${{ steps.next.outputs.tag }}"
           git push origin main
           git push origin "${{ steps.next.outputs.tag }}"
-          echo "✅ Pushed ${{ steps.next.outputs.tag }} — release.yml will now build and publish."
+          echo "bumped=true" >> $GITHUB_OUTPUT
+          echo "✅ Pushed ${{ steps.next.outputs.tag }} — release will now build and publish."
+
+  build-linux:
+    needs: semantic-release
+    if: needs.semantic-release.outputs.bumped == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.semantic-release.outputs.tag_name }}
+
+      - name: Set up Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Native Linux Compilation Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++6
+
+      - name: Download App Dependencies
+        run: flutter pub get
+
+      - name: Run Riverpod Structural Code Generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Compile Native Linux Production Binary
+        run: flutter build linux --release
+
+      - name: Package Linux Bundle into Compressed Tarball
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ${{ github.workspace }}/rowly-linux-x64.tar.gz .
+
+      - name: Upload Linux Asset to Worker Session
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifact
+          path: rowly-linux-x64.tar.gz
+
+  build-windows:
+    needs: semantic-release
+    if: needs.semantic-release.outputs.bumped == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.semantic-release.outputs.tag_name }}
+
+      - name: Set up Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Download App Dependencies
+        run: flutter pub get
+
+      - name: Run Riverpod Structural Code Generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Compile Native Windows Production Executable
+        run: flutter build windows --release
+
+      - name: Package Windows Bundle into Portable Zip
+        shell: pwsh
+        run: |
+          cd build/windows/x64/runner/Release
+          Compress-Archive -Path * -DestinationPath "${{ github.workspace }}\rowly-windows-x64.zip"
+
+      - name: Upload Windows Asset to Worker Session
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifact
+          path: rowly-windows-x64.zip
+
+  create-release:
+    needs: [semantic-release, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux Compiled Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifact
+          path: .
+
+      - name: Download Windows Compiled Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifact
+          path: .
+
+      - name: Generate and Publish Official GitHub Release Tag
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Rowly ${{ needs.semantic-release.outputs.tag_name }}
+          tag_name: ${{ needs.semantic-release.outputs.tag_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 📦 Rowly ${{ needs.semantic-release.outputs.tag_name }}
+
+            **Download the right package for your platform:**
+
+            | Platform | File |
+            |---|---|
+            | 🐧 Linux (x64) | `rowly-linux-x64.tar.gz` — extract and run `./rowly` |
+            | 🪟 Windows (x64) | `rowly-windows-x64.zip` — extract and run `rowly.exe` |
+
+          files: |
+            rowly-linux-x64.tar.gz
+            rowly-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

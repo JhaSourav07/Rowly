@@ -95,11 +95,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-artifact
+          path: .
 
       - name: Download Windows Compiled Binary
         uses: actions/download-artifact@v4
         with:
           name: windows-artifact
+          path: .
 
       - name: Generate and Publish Official GitHub Release Tag
         uses: softprops/action-gh-release@v2
