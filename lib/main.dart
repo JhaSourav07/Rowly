@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,8 +12,72 @@ import 'features/csv_workspace/presentation/controllers/theme_provider.dart';
 
 final initialFilePathProvider = Provider<String?>((ref) => null);
 
+Future<void> _registerFileAssociations() async {
+  if (kIsWeb) return;
+  try {
+    if (Platform.isLinux) {
+      final home = Platform.environment['HOME'];
+      if (home == null) return;
+
+      final desktopDir = Directory('$home/.local/share/applications');
+      if (!await desktopDir.exists()) {
+        await desktopDir.create(recursive: true);
+      }
+
+      final executablePath = Platform.resolvedExecutable;
+      final desktopFile = File('${desktopDir.path}/rowly.desktop');
+
+      final content = '''
+[Desktop Entry]
+Name=Rowly
+Comment=Production-grade CSV and Excel Editor
+Exec=$executablePath %f
+Terminal=false
+Type=Application
+Categories=Office;
+MimeType=text/csv;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-excel;
+''';
+
+      await desktopFile.writeAsString(content);
+
+      await Process.run('update-desktop-database', [desktopDir.path]);
+
+      await Process.run('xdg-mime', [
+        'default',
+        'rowly.desktop',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ]);
+      await Process.run('xdg-mime', [
+        'default',
+        'rowly.desktop',
+        'application/vnd.ms-excel'
+      ]);
+      await Process.run('xdg-mime', [
+        'default',
+        'rowly.desktop',
+        'text/csv'
+      ]);
+    } else if (Platform.isWindows) {
+      final exe = Platform.resolvedExecutable;
+      await Process.run('reg', ['add', 'HKCU\\Software\\Classes\\.xlsx', '/t', 'REG_SZ', '/d', 'Rowly.xlsx', '/f']);
+      await Process.run('reg', ['add', 'HKCU\\Software\\Classes\\.xls', '/t', 'REG_SZ', '/d', 'Rowly.xls', '/f']);
+      await Process.run('reg', ['add', 'HKCU\\Software\\Classes\\.csv', '/t', 'REG_SZ', '/d', 'Rowly.csv', '/f']);
+      
+      await Process.run('reg', ['add', 'HKCU\\Software\\Classes\\Rowly.xlsx\\shell\\open\\command', '/t', 'REG_SZ', '/d', '"$exe" "%1"', '/f']);
+      await Process.run('reg', ['add', 'HKCU\\Software\\Classes\\Rowly.xls\\shell\\open\\command', '/t', 'REG_SZ', '/d', '"$exe" "%1"', '/f']);
+      await Process.run('reg', ['add', 'HKCU\\Software\\Classes\\Rowly.csv\\shell\\open\\command', '/t', 'REG_SZ', '/d', '"$exe" "%1"', '/f']);
+    }
+  } catch (e) {
+    debugPrint('Failed to register file associations: $e');
+  }
+}
+
 void main(List<String> args) {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Register file associations on desktop platforms asynchronously
+  _registerFileAssociations();
+
   // Suppress the browser's native right-click menu so Flutter Web
   // can intercept secondary pointer events (e.g. column context menu).
   if (kIsWeb) {
