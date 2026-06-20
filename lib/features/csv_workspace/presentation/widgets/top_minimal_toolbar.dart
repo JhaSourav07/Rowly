@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/colors.dart';
@@ -148,6 +150,32 @@ class _TopMinimalToolbarState extends ConsumerState<TopMinimalToolbar> {
                       constraints: const BoxConstraints(),
                     ),
                     const SizedBox(width: 12.0),
+                    if (!kIsWeb && displayPath != null) ...[
+                      IconButton(
+                        icon: Icon(Icons.open_in_new_outlined, size: 16, color: AppColors.textMuted),
+                        onPressed: () async {
+                          try {
+                            if (Platform.isWindows) {
+                              await Process.run('cmd', ['/c', 'start', '', displayPath]);
+                            } else if (Platform.isMacOS) {
+                              await Process.run('open', [displayPath]);
+                            } else if (Platform.isLinux) {
+                              await Process.run('xdg-open', [displayPath]);
+                            }
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to launch external app: $e')),
+                            );
+                          }
+                        },
+                        tooltip: 'Open in Excel / External App',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 12.0),
+                    ],
                     IconButton(
                       icon: Icon(Icons.settings_outlined, size: 16, color: AppColors.textMuted),
                       onPressed: () {},

@@ -9,14 +9,26 @@ import 'features/csv_workspace/presentation/widgets/widgets.dart';
 
 import 'features/csv_workspace/presentation/controllers/theme_provider.dart';
 
-void main() {
+final initialFilePathProvider = Provider<String?>((ref) => null);
+
+void main(List<String> args) {
   WidgetsFlutterBinding.ensureInitialized();
   // Suppress the browser's native right-click menu so Flutter Web
   // can intercept secondary pointer events (e.g. column context menu).
   if (kIsWeb) {
     BrowserContextMenu.disableContextMenu();
   }
-  runApp(const ProviderScope(child: RowlyApp()));
+  
+  final String? initialPath = args.isNotEmpty ? args.first : null;
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        initialFilePathProvider.overrideWithValue(initialPath),
+      ],
+      child: const RowlyApp(),
+    ),
+  );
 }
 
 class RowlyApp extends ConsumerWidget {
@@ -58,11 +70,27 @@ class RowlyApp extends ConsumerWidget {
   }
 }
 
-class MainWorkspaceScaffold extends ConsumerWidget {
+class MainWorkspaceScaffold extends ConsumerStatefulWidget {
   const MainWorkspaceScaffold({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainWorkspaceScaffold> createState() => _MainWorkspaceScaffoldState();
+}
+
+class _MainWorkspaceScaffoldState extends ConsumerState<MainWorkspaceScaffold> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final initialPath = ref.read(initialFilePathProvider);
+      if (initialPath != null) {
+        ref.read(csvLoaderProvider.notifier).loadFile(initialPath);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final csvState = ref.watch(csvLoaderProvider);
 
     return Scaffold(
